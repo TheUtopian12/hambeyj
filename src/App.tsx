@@ -385,6 +385,22 @@ export default function App() {
     }
   }, [])
 
+  // FEATURED RECOMMENDATION STATES
+  const [featuredProductId, setFeaturedProductId] = useState<string>(() => {
+    return localStorage.getItem('burgers_je_featured_product_id') || ''
+  })
+
+  const handleSetFeaturedProduct = (id: string) => {
+    setFeaturedProductId(id)
+    if (id) {
+      localStorage.setItem('burgers_je_featured_product_id', id)
+      showToast('Recomendación del día actualizada', 'success')
+    } else {
+      localStorage.removeItem('burgers_je_featured_product_id')
+      showToast('Recomendación del día reestablecida a automático', 'info')
+    }
+  }
+
   // Inline Cash Out states for Orders View
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null)
   const [payingMethod, setPayingMethod] = useState<'Efectivo' | 'Transferencia'>('Efectivo')
@@ -917,7 +933,7 @@ export default function App() {
   })
 
   if (isMenuView) {
-    return <DigitalMenuBoard products={products} />
+    return <DigitalMenuBoard products={products} featuredProductId={featuredProductId} />
   }
 
   return (
@@ -990,7 +1006,7 @@ export default function App() {
               ⚙️ CONFIGURACIÓN
             </button>
             <a
-              href="?view=menu"
+              href={`?view=menu${featuredProductId ? `&featured=${featuredProductId}` : ''}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 text-yellow-500 hover:text-yellow-400 hover:bg-zinc-800/60 cursor-pointer"
@@ -2289,6 +2305,85 @@ export default function App() {
             </div>
             */}
 
+            {/* COLUMN 3: FEATURED RECOMMENDATION SELECTION (1/3) */}
+            <div className="w-full xl:w-[420px] bg-zinc-950 rounded-2xl border border-zinc-900 p-6 flex flex-col justify-between">
+              <div>
+                <div className="border-b border-zinc-900 pb-4 mb-5">
+                  <h2 className="font-bebas text-2xl tracking-wider text-white m-0">✨ RECOMENDACIÓN DE HOY</h2>
+                  <p className="text-xs text-zinc-500 m-0">Elige el plato destacado que se mostrará en la pantalla gigante de los clientes.</p>
+                </div>
+
+                {/* Select product */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                      Seleccionar Producto
+                    </label>
+                    <select
+                      value={featuredProductId}
+                      onChange={(e) => handleSetFeaturedProduct(e.target.value)}
+                      className="custom-input py-2.5 text-xs bg-zinc-950 text-white cursor-pointer w-full"
+                    >
+                      <option value="">🔄 Rotación Automática (Combos/Promos)</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          [{p.category.toUpperCase()}] - {p.title} (${p.price})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Featured product preview card */}
+                  {(() => {
+                    const featProd = products.find((p) => p.id === featuredProductId)
+                    if (!featProd) {
+                      return (
+                        <div className="border border-dashed border-zinc-800 rounded-xl p-6 text-center text-zinc-600 text-xs font-medium">
+                          Modo automático activo. El sistema rotará los combos y promociones principales en la pantalla de clientes.
+                        </div>
+                      )
+                    }
+                    return (
+                      <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-4 space-y-4">
+                        <div className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                          Vista previa en pantalla:
+                        </div>
+                        <div className="flex gap-4 items-center">
+                          {featProd.image && (
+                            <img
+                              src={featProd.image}
+                              alt={featProd.title}
+                              className="w-16 h-16 object-cover rounded-xl border border-zinc-800"
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
+                              }}
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bebas text-lg text-yellow-accent truncate m-0">
+                              {featProd.title}
+                            </h4>
+                            <span className="font-mono text-sm text-red-500 font-bold">
+                              ${featProd.price}
+                            </span>
+                            <p className="text-[10px] text-zinc-500 truncate m-0 mt-1">
+                              {featProd.description}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleSetFeaturedProduct('')}
+                          className="w-full bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-400 hover:text-white font-bebas text-xs py-2 rounded-lg tracking-wide transition-colors cursor-pointer"
+                        >
+                          ❌ QUITAR DESTACADO
+                        </button>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -2470,26 +2565,32 @@ export default function App() {
   )
 }
 
-function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
+function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[], featuredProductId: string }) {
   const hamburguesas = products.filter(p => p.category === 'Hamburguesas')
   const combos = products.filter(p => p.category === 'Combos')
   const bebidas = products.filter(p => p.category === 'Bebidas')
   const promos = products.filter(p => p.category === 'Promos')
   const otros = products.filter(p => p.category === 'Otros')
 
-  // Rotating featured item
-  const featuredProducts = products.filter(p => p.category === 'Promos' || p.category === 'Combos' || p.category === 'Hamburguesas').slice(0, 5)
+  // Resolve featured item (checks URL first, then State/Prop, then localStorage, then fallbacks)
+  const urlParams = new URLSearchParams(window.location.search)
+  const urlFeaturedId = urlParams.get('featured')
+  const finalFeaturedId = urlFeaturedId || featuredProductId || localStorage.getItem('burgers_je_featured_product_id') || ''
+  const selectedFeatured = products.find(p => p.id === finalFeaturedId)
+
+  // Rotating featured item as fallback
+  const fallbackFeaturedProducts = products.filter(p => p.category === 'Promos' || p.category === 'Combos' || p.category === 'Hamburguesas').slice(0, 5)
   const [featuredIndex, setFeaturedIndex] = useState(0)
 
   useEffect(() => {
-    if (featuredProducts.length <= 1) return
+    if (fallbackFeaturedProducts.length <= 1) return
     const interval = setInterval(() => {
-      setFeaturedIndex(prev => (prev + 1) % featuredProducts.length)
+      setFeaturedIndex(prev => (prev + 1) % fallbackFeaturedProducts.length)
     }, 6000)
     return () => clearInterval(interval)
-  }, [featuredProducts.length])
+  }, [fallbackFeaturedProducts.length])
 
-  const featured = featuredProducts[featuredIndex]
+  const featured = selectedFeatured || fallbackFeaturedProducts[featuredIndex]
 
   return (
     <div className="min-h-screen bg-black text-white p-6 flex flex-col font-poppins selection:bg-red-600 selection:text-white relative overflow-hidden">
@@ -2519,17 +2620,17 @@ function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
       </header>
 
       {/* --- TWO COLUMNS LAYOUT: LEFT IS SPECIAL/FEATURED SLIDESHOW, RIGHT IS ENTIRE MENU GRID --- */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 z-10">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 z-10 items-stretch">
         {/* LEFT COLUMN: FEATURED HIGHLIGHT (4/12 width) */}
         {featured && (
-          <div className="lg:col-span-4 flex flex-col bg-zinc-950/80 rounded-3xl border border-zinc-900 p-6 justify-between h-full relative overflow-hidden group">
+          <div className="lg:col-span-4 flex flex-col bg-zinc-950/80 rounded-3xl border border-zinc-900 p-6 justify-between relative overflow-hidden group min-h-[500px]">
             {/* Corner Decorative ribbon */}
             <div className="absolute top-4 right-4 bg-red-600 text-white font-bebas text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold shadow-lg shadow-red-600/20 animate-pulse">
-              Recomendado ✨
+              Recomendación de Hoy ✨
             </div>
 
             <div className="space-y-6">
-              <h2 className="font-bebas text-3xl text-white tracking-wide border-b border-zinc-900 pb-3 m-0">🔥 RECOMENDADO DE HOY</h2>
+              <h2 className="font-bebas text-3xl text-white tracking-wide border-b border-zinc-900 pb-3 m-0">🔥 RECOMENDADO</h2>
               
               <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-900/50">
                 <img
@@ -2552,7 +2653,7 @@ function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
               </div>
             </div>
 
-            <div className="pt-6 border-t border-zinc-900 flex justify-between items-center">
+            <div className="pt-6 border-t border-zinc-900 flex justify-between items-center mt-6">
               <div>
                 <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">PRECIO ESPECIAL</span>
                 <span className="text-3xl font-mono text-red-500 font-bold">${featured.price}</span>
@@ -2568,15 +2669,15 @@ function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
         )}
 
         {/* RIGHT COLUMN: CATEGORIES LISTING (8/12 width) */}
-        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6 content-start h-full overflow-y-auto pr-2 max-h-[80vh] custom-scrollbar">
+        <div className="lg:col-span-8 flex flex-col gap-8 h-full overflow-y-auto pr-2 max-h-[85vh] custom-scrollbar">
           
           {/* HAMBURGUESAS */}
           {hamburguesas.length > 0 && (
-            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
-              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
-                🍔 HAMBURGUESAS
+            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
+              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
+                🍔 HAMBURGUESAS PREMIUM
               </h2>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {hamburguesas.map(item => (
                   <MenuListItem key={item.id} item={item} />
                 ))}
@@ -2586,11 +2687,11 @@ function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
 
           {/* COMBOS */}
           {combos.length > 0 && (
-            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
-              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
-                🍟 COMBOS
+            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
+              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
+                🍟 COMBOS CON PAPAS Y BEBIDA
               </h2>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {combos.map(item => (
                   <MenuListItem key={item.id} item={item} />
                 ))}
@@ -2600,11 +2701,11 @@ function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
 
           {/* PROMOS */}
           {promos.length > 0 && (
-            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
-              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
-                📢 PROMOS ESPECIALES
+            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
+              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
+                📢 PROMOS IMPERDIBLES
               </h2>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {promos.map(item => (
                   <MenuListItem key={item.id} item={item} />
                 ))}
@@ -2614,11 +2715,11 @@ function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
 
           {/* BEBIDAS & OTROS */}
           {(bebidas.length > 0 || otros.length > 0) && (
-            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
-              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
+            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
+              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
                 🥤 BEBIDAS Y EXTRAS
               </h2>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[...bebidas, ...otros].map(item => (
                   <MenuListItem key={item.id} item={item} />
                 ))}
@@ -2634,29 +2735,38 @@ function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
 
 function MenuListItem({ item }: { item: FoodItem }) {
   return (
-    <div className="flex gap-4 items-start bg-zinc-900/20 hover:bg-zinc-900/40 p-3 rounded-2xl border border-zinc-900/60 transition-all duration-300">
-      {item.image && (
-        <img
-          src={item.image}
-          alt={item.title}
-          className="w-14 h-14 object-cover rounded-xl border border-zinc-800 shrink-0"
-          onError={(e) => {
-            e.currentTarget.src = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
-          }}
-        />
+    <div className="bg-zinc-950 rounded-2xl border border-zinc-900 hover:border-zinc-800 transition-all duration-300 overflow-hidden flex flex-col h-full shadow-lg shadow-black/40">
+      {item.image ? (
+        <div className="relative aspect-video w-full overflow-hidden border-b border-zinc-900 bg-zinc-900">
+          <img
+            src={item.image}
+            alt={item.title}
+            className="w-full h-full object-cover transition-all duration-500 hover:scale-105"
+            onError={(e) => {
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
+            }}
+          />
+        </div>
+      ) : (
+        <div className="relative aspect-video w-full overflow-hidden border-b border-zinc-900 bg-zinc-900 flex items-center justify-center">
+          <span className="text-4xl">🍔</span>
+        </div>
       )}
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-baseline gap-2">
-          <h3 className="font-bebas text-lg tracking-wider text-yellow-accent truncate m-0">
+      <div className="p-5 flex flex-col justify-between flex-1 gap-4">
+        <div>
+          <h3 className="font-bebas text-xl sm:text-2xl tracking-wider text-yellow-accent m-0 leading-tight">
             {item.title}
           </h3>
-          <span className="font-mono text-sm text-red-500 font-bold shrink-0">
+          <p className="text-xs text-zinc-400 mt-2 line-clamp-3 leading-relaxed font-poppins m-0">
+            {item.description}
+          </p>
+        </div>
+        <div className="flex justify-between items-center border-t border-zinc-900/80 pt-3">
+          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">PRECIO</span>
+          <span className="font-mono text-lg sm:text-xl text-red-500 font-bold">
             ${item.price}
           </span>
         </div>
-        <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2 leading-relaxed m-0">
-          {item.description}
-        </p>
       </div>
     </div>
   )
