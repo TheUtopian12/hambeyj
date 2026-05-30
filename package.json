@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"pnpm run server\" \"pnpm run client\"",
+    "dev": "vite",
     "server": "nodemon server/index.cjs",
     "client": "vite",
     "build": "tsc -b && vite build",

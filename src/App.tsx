@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 
 // --- INTERFACES ---
 interface FoodItem {
@@ -54,8 +54,6 @@ const CURRENT_USER: User = {
   name: 'Administrador Principal',
   role: 'ADMIN'
 }
-
-const AUTH_TOKEN = 'mock-jwt-token-bypass-login'
 
 // --- IMAGES PRESETS ---
 const PRESET_IMAGES = [
@@ -273,15 +271,58 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
   )
 }
 
+const generateUniqueId = (prefix: string = '') => {
+  const cleanPrefix = prefix ? `${prefix}-` : ''
+  return `${cleanPrefix}${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+}
+
 export default function App() {
   // --- POS DATA STATES ---
-  const [products, setProducts] = useState<FoodItem[]>([])
+  const [products, setProducts] = useState<FoodItem[]>(() => {
+    try {
+      const local = localStorage.getItem('burgers_je_products')
+      if (local) {
+        return JSON.parse(local)
+      } else {
+        localStorage.setItem('burgers_je_products', JSON.stringify(DEFAULT_PRODUCTS))
+        return DEFAULT_PRODUCTS
+      }
+    } catch (e) {
+      console.error(e)
+      return DEFAULT_PRODUCTS
+    }
+  })
   const [cart, setCart] = useState<CartItem[]>(() => {
     const local = localStorage.getItem('burgers_je_cart')
     return local ? JSON.parse(local) : []
   })
-  const [orders, setOrders] = useState<Order[]>([])
-  const [posUsers, setPosUsers] = useState<User[]>([])
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const local = localStorage.getItem('burgers_je_orders')
+      return local ? JSON.parse(local) : []
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  })
+  const [posUsers, setPosUsers] = useState<User[]>(() => {
+    try {
+      const local = localStorage.getItem('burgers_je_users')
+      if (local) {
+        return JSON.parse(local)
+      } else {
+        const defaultUsers: User[] = [
+          { id: 'admin-id-default', username: 'admin', name: 'Administrador Principal', role: 'ADMIN', createdAt: new Date().toISOString() },
+          { id: 'staff-id-default', username: 'staff', name: 'Personal de Caja', role: 'STAFF', createdAt: new Date().toISOString() }
+        ]
+        localStorage.setItem('burgers_je_users', JSON.stringify(defaultUsers))
+        return defaultUsers
+      }
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  })
 
   const [activeTab, setActiveTab] = useState<'pos' | 'pedidos' | 'admin'>('pos')
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas')
@@ -305,7 +346,7 @@ export default function App() {
   const [formCategory, setFormCategory] = useState<'Hamburguesas' | 'Combos' | 'Bebidas' | 'Promos' | 'Otros'>('Hamburguesas')
   const [formImage, setFormImage] = useState('')
   const [adminErrors, setAdminErrors] = useState<{ title?: string; price?: string; desc?: string }>({})
-  const [imagePreviewMode, setImagePreviewMode] = useState<'preset' | 'url' | 'upload'>('preset')
+  const [imagePreviewMode, setImagePreviewMode] = useState<'preset' | 'url'>('preset')
 
   // Admin User Form states
   const [newUserUsername, setNewUserUsername] = useState('')
@@ -324,12 +365,27 @@ export default function App() {
   const [payingError, setPayingError] = useState<string>('')
 
   // Notifications Log states
-  const [notificationLog, setNotificationLog] = useState<Array<{ id: string; text: string; time: number; type: 'success' | 'info' | 'error' }>>([])
+  const [notificationLog, setNotificationLog] = useState<Array<{ id: string; text: string; time: number; type: 'success' | 'info' | 'error' }>>(() => {
+    try {
+      const localLogs = localStorage.getItem('burgers_je_notifications')
+      if (localLogs) {
+        return JSON.parse(localLogs)
+      } else {
+        const initialLogs: Array<{ id: string; text: string; time: number; type: 'success' | 'info' | 'error' }> = [
+          { id: 'notif-welcome', text: 'Sistema POS Burgers J&E iniciado correctamente. 🔥', time: Date.now(), type: 'info' },
+          { id: 'notif-seed', text: 'Menú predeterminado y recetas cargados con éxito. 🍔', time: Date.now() - 5000, type: 'success' }
+        ]
+        localStorage.setItem('burgers_je_notifications', JSON.stringify(initialLogs))
+        return initialLogs
+      }
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  })
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // --- PERSISTENCE FOR LOCAL CART & LOGS ---
   useEffect(() => {
@@ -342,73 +398,9 @@ export default function App() {
     }
   }, [notificationLog])
 
-  // --- FETCH PRODUCTS & ORDERS FROM POSTGRES ---
-  const fetchProductsFromDb = async () => {
-    try {
-      const res = await fetch('/api/products', {
-        headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setProducts(data)
-      } else {
-        showToast('Error al conectar y cargar los productos de la base de datos', 'error')
-      }
-    } catch (e) {
-      console.error(e)
-      showToast('Error de red al conectar al servidor de base de datos', 'error')
-    }
-  }
-
-  const fetchOrdersFromDb = async () => {
-    try {
-      const res = await fetch('/api/orders', {
-        headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setOrders(data)
-      }
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  const fetchUsersFromDb = async () => {
-    try {
-      const res = await fetch('/api/auth/users', {
-        headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setPosUsers(data)
-      }
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
-  // --- TRIGGERS INITIAL DATA LOAD ---
-  useEffect(() => {
-    fetchProductsFromDb()
-    fetchOrdersFromDb()
-    fetchUsersFromDb()
-    
-    // Seed welcome notifications log if empty
-    const localLogs = localStorage.getItem('burgers_je_notifications')
-    if (localLogs) {
-      setNotificationLog(JSON.parse(localLogs))
-    } else {
-      setNotificationLog([
-        { id: 'notif-welcome', text: 'Sistema POS Burgers J&E iniciado correctamente. 🔥', time: Date.now(), type: 'info' },
-        { id: 'notif-seed', text: 'Menú predeterminado y recetas cargados con éxito. 🍔', time: Date.now() - 5000, type: 'success' }
-      ])
-    }
-  }, [])
-
   // --- TOAST FUNCTION ---
   const showToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
-    const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+    const id = generateUniqueId()
     setToasts((prev) => [...prev, { id, text, type }])
 
     // Add to notifications log
@@ -521,50 +513,49 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AUTH_TOKEN}`
-        },
-        body: JSON.stringify({
-          customerName: customerName.trim(),
-          items: cart,
-          subtotal,
-          tax: taxAmount,
-          total: grandTotal,
-          paymentMethod: isPaidWorkflow ? paymentMethod : 'Efectivo',
-          paymentAmountReceived: (isPaidWorkflow && paymentMethod === 'Efectivo') ? parseFloat(cashReceived) : undefined,
-          notes: checkoutNotes.trim() || undefined,
-          status: 'Pendiente',
-          isPaid: isPaidWorkflow
-        })
-      })
+      const localOrdersStr = localStorage.getItem('burgers_je_orders')
+      const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
+      const nextOrderNumber = currentOrders.length > 0 
+        ? Math.max(...currentOrders.map(o => o.orderNumber || 0)) + 1 
+        : 1
 
-      const data = await res.json()
-
-      if (res.ok) {
-        setOrders((prev) => [data, ...prev])
-        showToast(
-          isPaidWorkflow
-            ? `¡Pedido #${String(data.orderNumber).padStart(4, '0')} cobrado y enviado a cocina!`
-            : `¡Pedido #${String(data.orderNumber).padStart(4, '0')} enviado a cocina! (Pago pendiente)`,
-          'success'
-        )
-        
-        // Reset POS sidebar state
-        setCart([])
-        setCustomerName('')
-        setCashReceived('')
-        setCheckoutNotes('')
-        setCheckoutErrors({})
-        setCheckoutStep('cart')
-      } else {
-        showToast(data.error || 'Error al guardar pedido en servidor', 'error')
+      const newOrder: Order = {
+        id: generateUniqueId('order'),
+        orderNumber: nextOrderNumber,
+        customerName: customerName.trim(),
+        items: cart,
+        subtotal,
+        tax: taxAmount,
+        total: grandTotal,
+        paymentMethod: isPaidWorkflow ? paymentMethod : 'Efectivo',
+        paymentAmountReceived: (isPaidWorkflow && paymentMethod === 'Efectivo') ? parseFloat(cashReceived) : undefined,
+        notes: checkoutNotes.trim() || undefined,
+        status: 'Pendiente',
+        isPaid: isPaidWorkflow,
+        timestamp: new Date().toISOString()
       }
+
+      const updatedOrders = [newOrder, ...currentOrders]
+      localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
+      setOrders(updatedOrders)
+
+      showToast(
+        isPaidWorkflow
+          ? `¡Pedido #${String(newOrder.orderNumber).padStart(4, '0')} cobrado y enviado a cocina!`
+          : `¡Pedido #${String(newOrder.orderNumber).padStart(4, '0')} enviado a cocina! (Pago pendiente)`,
+        'success'
+      )
+      
+      // Reset POS sidebar state
+      setCart([])
+      setCustomerName('')
+      setCashReceived('')
+      setCheckoutNotes('')
+      setCheckoutErrors({})
+      setCheckoutStep('cart')
     } catch (err) {
       console.error(err)
-      showToast('Error de red al guardar el pedido', 'error')
+      showToast('Error al guardar el pedido localmente', 'error')
     }
   }
 
@@ -582,34 +573,31 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/orders/${order.id}/pay`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AUTH_TOKEN}`
-        },
-        body: JSON.stringify({
-          paymentMethod: payingMethod,
-          paymentAmountReceived: payingMethod === 'Efectivo' ? parseFloat(payingCashReceived) : undefined
-        })
+      const localOrdersStr = localStorage.getItem('burgers_je_orders')
+      const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
+      const updatedOrders = currentOrders.map((o) => {
+        if (o.id === order.id) {
+          return {
+            ...o,
+            isPaid: true,
+            paymentMethod: payingMethod,
+            paymentAmountReceived: payingMethod === 'Efectivo' ? parseFloat(payingCashReceived) : undefined
+          }
+        }
+        return o
       })
 
-      const data = await res.json()
-
-      if (res.ok) {
-        setOrders((prev) => prev.map((o) => (o.id === order.id ? data : o)))
-        showToast(`¡Pedido #${String(order.orderNumber).padStart(4, '0')} cobrado con éxito!`, 'success')
-        
-        // Reset states
-        setPayingOrderId(null)
-        setPayingCashReceived('')
-        setPayingError('')
-      } else {
-        showToast(data.error || 'Error al procesar cobro de pedido', 'error')
-      }
+      localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
+      setOrders(updatedOrders)
+      showToast(`¡Pedido #${String(order.orderNumber).padStart(4, '0')} cobrado con éxito!`, 'success')
+      
+      // Reset states
+      setPayingOrderId(null)
+      setPayingCashReceived('')
+      setPayingError('')
     } catch (err) {
       console.error(err)
-      showToast('Error al conectar con el servidor para registrar el pago', 'error')
+      showToast('Error al procesar el pago del pedido', 'error')
     }
   }
 
@@ -617,51 +605,46 @@ export default function App() {
   const handleDeleteOrder = async (orderId: string, orderNumber: number) => {
     if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el Pedido #${String(orderNumber).padStart(4, '0')}?`)) {
       try {
-        const res = await fetch(`/api/orders/${orderId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
-        })
-        if (res.ok) {
-          setOrders((prev) => prev.filter((o) => o.id !== orderId))
-          showToast(`Pedido #${String(orderNumber).padStart(4, '0')} eliminado`, 'error')
-        } else {
-          const data = await res.json()
-          showToast(data.error || 'Error al eliminar pedido del servidor', 'error')
-        }
+        const localOrdersStr = localStorage.getItem('burgers_je_orders')
+        const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
+        const updatedOrders = currentOrders.filter((o) => o.id !== orderId)
+        
+        localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
+        setOrders(updatedOrders)
+        showToast(`Pedido #${String(orderNumber).padStart(4, '0')} eliminado`, 'error')
       } catch (err) {
         console.error(err)
-        showToast('Error de red al eliminar el pedido', 'error')
+        showToast('Error al eliminar el pedido', 'error')
       }
     }
   }
 
   const handleClearOrderHistory = () => {
-    showToast('Para limpiar la base de datos completa de forma segura, contacte al soporte del servidor.', 'info')
+    if (confirm('¿Estás seguro de que deseas vaciar todo el historial de pedidos de forma permanente?')) {
+      localStorage.setItem('burgers_je_orders', JSON.stringify([]))
+      setOrders([])
+      showToast('Historial de pedidos vaciado por completo', 'error')
+    }
   }
 
   // --- ORDER STATUS TRANSITIONS TO DATABASE ---
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AUTH_TOKEN}`
-        },
-        body: JSON.stringify({ status: newStatus })
+      const localOrdersStr = localStorage.getItem('burgers_je_orders')
+      const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
+      const updatedOrders = currentOrders.map((o) => {
+        if (o.id === orderId) {
+          return { ...o, status: newStatus }
+        }
+        return o
       })
 
-      const data = await res.json()
-
-      if (res.ok) {
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? data : o)))
-        showToast(`Pedido actualizado a estado: ${newStatus}`, 'info')
-      } else {
-        showToast(data.error || 'Error al actualizar estado del pedido', 'error')
-      }
+      localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
+      setOrders(updatedOrders)
+      showToast(`Pedido actualizado a estado: ${newStatus}`, 'info')
     } catch (err) {
       console.error(err)
-      showToast('Error de red al actualizar estado del pedido', 'error')
+      showToast('Error al actualizar estado del pedido', 'error')
     }
   }
 
@@ -692,62 +675,58 @@ export default function App() {
     const finalImage = formImage.trim() || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
 
     try {
+      const localProductsStr = localStorage.getItem('burgers_je_products')
+      const currentProducts: FoodItem[] = localProductsStr ? JSON.parse(localProductsStr) : []
+
       if (editingItem) {
         // Edit product
-        const res = await fetch(`/api/products/${editingItem.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${AUTH_TOKEN}`
-          },
-          body: JSON.stringify({
-            title: formTitle.trim(),
-            description: formDescription.trim(),
-            price: priceNum,
-            image: finalImage,
-            category: formCategory
-          })
+        const updatedProducts = currentProducts.map((item) => {
+          if (item.id === editingItem.id) {
+            return {
+              ...item,
+              title: formTitle.trim().toUpperCase(),
+              description: formDescription.trim(),
+              price: priceNum,
+              image: finalImage,
+              category: formCategory
+            }
+          }
+          return item
         })
 
-        const data = await res.json()
-
-        if (res.ok) {
-          setProducts((prev) => prev.map((item) => (item.id === editingItem.id ? data : item)))
-          showToast(`Producto "${formTitle.toUpperCase()}" actualizado`, 'success')
-          handleResetAdminForm()
-        } else {
-          showToast(data.error || 'Error al actualizar comida en base de datos', 'error')
-        }
+        localStorage.setItem('burgers_je_products', JSON.stringify(updatedProducts))
+        setProducts(updatedProducts)
+        showToast(`Producto "${formTitle.toUpperCase()}" actualizado`, 'success')
+        handleResetAdminForm()
       } else {
         // Create product
-        const res = await fetch('/api/products', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${AUTH_TOKEN}`
-          },
-          body: JSON.stringify({
-            title: formTitle.trim(),
-            description: formDescription.trim(),
-            price: priceNum,
-            image: finalImage,
-            category: formCategory
-          })
-        })
+        const normalizedTitle = formTitle.trim().toUpperCase()
+        const existing = currentProducts.some((item) => item.title === normalizedTitle)
 
-        const data = await res.json()
-
-        if (res.ok) {
-          setProducts((prev) => [...prev, data])
-          showToast(`Producto "${data.title}" añadido al menú`, 'success')
-          handleResetAdminForm()
-        } else {
-          showToast(data.error || 'Error al guardar plato en el menú', 'error')
+        if (existing) {
+          showToast('Ya existe un producto con este título', 'error')
+          return
         }
+
+        const newProduct: FoodItem = {
+          id: generateUniqueId('prod'),
+          title: normalizedTitle,
+          description: formDescription.trim(),
+          price: priceNum,
+          image: finalImage,
+          category: formCategory,
+          isCustom: true
+        }
+
+        const updatedProducts = [...currentProducts, newProduct]
+        localStorage.setItem('burgers_je_products', JSON.stringify(updatedProducts))
+        setProducts(updatedProducts)
+        showToast(`Producto "${newProduct.title}" añadido al menú`, 'success')
+        handleResetAdminForm()
       }
     } catch (err) {
       console.error(err)
-      showToast('Error de red al guardar el producto', 'error')
+      showToast('Error al guardar el producto', 'error')
     }
   }
 
@@ -760,9 +739,6 @@ export default function App() {
     setFormImage('')
     setAdminErrors({})
     setImagePreviewMode('preset')
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
   }
 
   const handleEditProductClick = (item: FoodItem) => {
@@ -776,8 +752,6 @@ export default function App() {
 
     if (PRESET_IMAGES.some((p) => p.url === item.image)) {
       setImagePreviewMode('preset')
-    } else if (item.image.startsWith('data:image')) {
-      setImagePreviewMode('upload')
     } else {
       setImagePreviewMode('url')
     }
@@ -787,24 +761,20 @@ export default function App() {
   const handleDeleteProduct = async (productId: string, title: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar "${title}" del menú?`)) {
       try {
-        const res = await fetch(`/api/products/${productId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
-        })
-        if (res.ok) {
-          setProducts((prev) => prev.filter((item) => item.id !== productId))
-          setCart((prev) => prev.filter((item) => item.product.id !== productId))
-          showToast(`"${title}" eliminado del menú`, 'error')
-          if (editingItem?.id === productId) {
-            handleResetAdminForm()
-          }
-        } else {
-          const data = await res.json()
-          showToast(data.error || 'Error al borrar comida del menú', 'error')
+        const localProductsStr = localStorage.getItem('burgers_je_products')
+        const currentProducts: FoodItem[] = localProductsStr ? JSON.parse(localProductsStr) : []
+        const updatedProducts = currentProducts.filter((item) => item.id !== productId)
+
+        localStorage.setItem('burgers_je_products', JSON.stringify(updatedProducts))
+        setProducts(updatedProducts)
+        setCart((prev) => prev.filter((item) => item.product.id !== productId))
+        showToast(`"${title}" eliminado del menú`, 'error')
+        if (editingItem?.id === productId) {
+          handleResetAdminForm()
         }
       } catch (err) {
         console.error(err)
-        showToast('Error de red al eliminar producto', 'error')
+        showToast('Error al eliminar producto', 'error')
       }
     }
   }
@@ -813,36 +783,13 @@ export default function App() {
     if (confirm('¿Restaurar base de datos de productos a los valores por defecto del sistema de diseño?')) {
       try {
         showToast('Restableciendo catálogo de comida...', 'info')
-        for (const prod of DEFAULT_PRODUCTS) {
-          await fetch('/api/products', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${AUTH_TOKEN}`
-            },
-            body: JSON.stringify(prod)
-          })
-        }
-        await fetchProductsFromDb()
+        localStorage.setItem('burgers_je_products', JSON.stringify(DEFAULT_PRODUCTS))
+        setProducts(DEFAULT_PRODUCTS)
         showToast('Base de datos de productos reestablecida con éxito', 'success')
       } catch (err) {
         console.error(err)
         showToast('Error al reestablecer productos', 'error')
       }
-    }
-  }
-
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setFormImage(reader.result)
-          showToast('Imagen cargada localmente', 'info')
-        }
-      }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -857,57 +804,56 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/auth/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${AUTH_TOKEN}`
-        },
-        body: JSON.stringify({
-          username: newUserUsername.trim(),
-          password: newUserPassword.trim(),
-          name: newUserName.trim(),
-          role: newUserRole
-        })
-      })
+      const normalizedUsername = newUserUsername.trim().toLowerCase()
+      const localUsersStr = localStorage.getItem('burgers_je_users')
+      const currentUsers: User[] = localUsersStr ? JSON.parse(localUsersStr) : []
 
-      const data = await res.json()
-
-      if (res.ok) {
-        setPosUsers((prev) => [data, ...prev])
-        showToast(`Usuario "${data.username.toUpperCase()}" creado correctamente`, 'success')
-        
-        // Reset user forms
-        setNewUserUsername('')
-        setNewUserPassword('')
-        setNewUserName('')
-        setNewUserRole('STAFF')
-      } else {
-        setUserFormError(data.error || 'Error al dar de alta el usuario')
+      if (currentUsers.some((u) => u.username === normalizedUsername)) {
+        setUserFormError('El nombre de usuario ya está registrado')
+        return
       }
+
+      const newUser: User = {
+        id: generateUniqueId('user'),
+        username: normalizedUsername,
+        name: newUserName.trim(),
+        role: newUserRole,
+        createdAt: new Date().toISOString()
+      }
+
+      const updatedUsers = [newUser, ...currentUsers]
+      localStorage.setItem('burgers_je_users', JSON.stringify(updatedUsers))
+      setPosUsers(updatedUsers)
+      showToast(`Usuario "${newUser.username.toUpperCase()}" creado correctamente`, 'success')
+      
+      // Reset user forms
+      setNewUserUsername('')
+      setNewUserPassword('')
+      setNewUserName('')
+      setNewUserRole('STAFF')
     } catch (err) {
       console.error(err)
-      setUserFormError('Error al conectar con la base de datos')
+      setUserFormError('Error al guardar el usuario')
     }
   }
 
   const handleDeleteUser = async (userId: string, username: string) => {
     if (confirm(`¿Estás seguro de que deseas desactivar la cuenta del personal "${username.toUpperCase()}"?`)) {
       try {
-        const res = await fetch(`/api/auth/users/${userId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${AUTH_TOKEN}` }
-        })
-        if (res.ok) {
-          setPosUsers((prev) => prev.filter((u) => u.id !== userId))
-          showToast(`Cuenta de personal "${username.toUpperCase()}" eliminada`, 'error')
-        } else {
-          const data = await res.json()
-          showToast(data.error || 'No se pudo dar de baja la cuenta', 'error')
+        if (userId === 'admin-id-default') {
+          showToast('No puedes eliminar la cuenta de administrador principal por defecto', 'error')
+          return
         }
+        const localUsersStr = localStorage.getItem('burgers_je_users')
+        const currentUsers: User[] = localUsersStr ? JSON.parse(localUsersStr) : []
+        const updatedUsers = currentUsers.filter((u) => u.id !== userId)
+
+        localStorage.setItem('burgers_je_users', JSON.stringify(updatedUsers))
+        setPosUsers(updatedUsers)
+        showToast(`Cuenta de personal "${username.toUpperCase()}" eliminada`, 'error')
       } catch (err) {
         console.error(err)
-        showToast('Error de red al borrar personal', 'error')
+        showToast('Error al borrar personal', 'error')
       }
     }
   }
@@ -2001,7 +1947,7 @@ export default function App() {
                   </label>
                   
                   {/* Image source selector buttons */}
-                  <div className="grid grid-cols-3 gap-1.5 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
+                  <div className="grid grid-cols-2 gap-1.5 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
                     <button
                       type="button"
                       onClick={() => setImagePreviewMode('preset')}
@@ -2019,15 +1965,6 @@ export default function App() {
                       }`}
                     >
                       Enlace URL
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImagePreviewMode('upload')}
-                      className={`py-1 text-[10px] rounded font-bold uppercase transition-all cursor-pointer ${
-                        imagePreviewMode === 'upload' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-350'
-                      }`}
-                    >
-                      Subir Foto
                     </button>
                   </div>
 
@@ -2068,22 +2005,6 @@ export default function App() {
                         value={formImage}
                         onChange={(e) => setFormImage(e.target.value)}
                         className="custom-input py-2 text-xs"
-                      />
-                    </div>
-                  )}
-
-                  {/* LOCAL FILE UPLOADER */}
-                  {imagePreviewMode === 'upload' && (
-                    <div className="border border-dashed border-zinc-800 hover:border-zinc-700 bg-zinc-950 p-3 rounded-lg text-center cursor-pointer relative transition-all">
-                      <span className="text-xl block mb-1">📁</span>
-                      <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wide block">Seleccionar archivo de imagen</span>
-                      <span className="text-[9px] text-zinc-600 mt-0.5 block">Se convertirá automáticamente para persistencia</span>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        onChange={handleImageFileChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
                     </div>
                   )}
