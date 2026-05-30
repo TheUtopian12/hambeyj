@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Usuarios del Sistema POS (Admin vs Staff)
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // Contraseña cifrada con bcryptjs
+  name      String
+  role      String   // "ADMIN" o "STAFF"
+  createdAt DateTime @default(now())
+}
+
+// 2. Base de Datos de Alimentos (Menu)
+model Product {
+  id          String   @id @default(uuid())
+  title       String   @unique
+  description String
+  price       Float
+  image       String   // URL de stock o Base64 cargada localmente
+  category    String   // "Hamburguesas", "Combos", "Bebidas", "Promos", "Otros"
+  isCustom    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// 3. Historial y Control de Pedidos
+model Order {
+  id                    String   @id @default(uuid())
+  orderNumber           Int      @unique @default(autoincrement()) // Genera Folio #0001, #0002...
+  customerName          String
+  items                 Json     // Guarda la lista detallada de productos, cantidades y notas como JSON
+  subtotal              Float
+  tax                   Float
+  total                 Float
+  paymentMethod         String   // "Efectivo" o "Transferencia"
+  paymentAmountReceived Float?
+  notes                 String?  // Notas generales del pedido
+  status                String   // "Pendiente", "En Cocina", "Listo", "Entregado", "Cancelado"
+  isPaid                Boolean  @default(false)
+  timestamp             DateTime @default(now())
+}
