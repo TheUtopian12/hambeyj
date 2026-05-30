@@ -305,6 +305,7 @@ export default function App() {
       return []
     }
   })
+  /*
   const [posUsers, setPosUsers] = useState<User[]>(() => {
     try {
       const local = localStorage.getItem('burgers_je_users')
@@ -323,6 +324,7 @@ export default function App() {
       return []
     }
   })
+  */
 
   const [activeTab, setActiveTab] = useState<'pos' | 'pedidos' | 'admin'>('pos')
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas')
@@ -349,14 +351,39 @@ export default function App() {
   const [imagePreviewMode, setImagePreviewMode] = useState<'preset' | 'url'>('preset')
 
   // Admin User Form states
+  /*
   const [newUserUsername, setNewUserUsername] = useState('')
   const [newUserPassword, setNewUserPassword] = useState('')
   const [newUserName, setNewUserName] = useState('')
   const [newUserRole, setNewUserRole] = useState<'ADMIN' | 'STAFF'>('STAFF')
   const [userFormError, setUserFormError] = useState('')
+  */
 
   // Filter state for orders panel
   const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendiente' | 'En Cocina' | 'Listo' | 'Entregado' | 'Cancelado'>('Todos')
+
+  // CLIENT MENU ROUTE DETECTION
+  const [isMenuView, setIsMenuView] = useState(() => {
+    return window.location.pathname === '/menu' || 
+           window.location.search.includes('menu') || 
+           window.location.hash.includes('menu')
+  })
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsMenuView(
+        window.location.pathname === '/menu' || 
+        window.location.search.includes('menu') || 
+        window.location.hash.includes('menu')
+      )
+    }
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('hashchange', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('hashchange', handlePopState)
+    }
+  }, [])
 
   // Inline Cash Out states for Orders View
   const [payingOrderId, setPayingOrderId] = useState<string | null>(null)
@@ -794,6 +821,7 @@ export default function App() {
   }
 
   // --- ADMIN SYSTEM USER MANAGEMENT CRUD ---
+  /*
   const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setUserFormError('')
@@ -857,6 +885,7 @@ export default function App() {
       }
     }
   }
+  */
 
   // --- STATS CALCULATIONS ---
   const statsSalesTotal = orders
@@ -886,6 +915,10 @@ export default function App() {
       item.description.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesCategory && matchesSearch
   })
+
+  if (isMenuView) {
+    return <DigitalMenuBoard products={products} />
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white relative font-poppins selection:bg-red-600 selection:text-white">
@@ -956,6 +989,14 @@ export default function App() {
             >
               ⚙️ CONFIGURACIÓN
             </button>
+            <a
+              href="?view=menu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 text-yellow-500 hover:text-yellow-400 hover:bg-zinc-800/60 cursor-pointer"
+            >
+              📺 VER MENÚ
+            </a>
           </nav>
 
           {/* --- NOTIFICATIONS BELL & DROPDOWN --- */}
@@ -2145,7 +2186,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* COLUMN 3: STAFF ACCOUNTS USER CONFIG (1/3) */}
+            {/* COLUMN 3: STAFF ACCOUNTS USER CONFIG (1/3) - HIDDEN BY USER REQUEST
             <div className="w-full xl:w-[420px] bg-zinc-950 rounded-2xl border border-zinc-900 p-6 flex flex-col justify-between">
               <div>
                 <div className="border-b border-zinc-900 pb-4 mb-5">
@@ -2153,7 +2194,6 @@ export default function App() {
                   <p className="text-xs text-zinc-500 m-0">Da de alta cajeros y administradores con roles de seguridad.</p>
                 </div>
 
-                {/* Create system user form */}
                 <form onSubmit={handleCreateUserSubmit} className="space-y-4 mb-6 border-b border-zinc-900/60 pb-5">
                   {userFormError && (
                     <p className="bg-red-950/20 border border-red-500/40 p-2 rounded-lg text-[11px] text-red-400 font-semibold">{userFormError}</p>
@@ -2214,7 +2254,6 @@ export default function App() {
                   </button>
                 </form>
 
-                {/* Users list */}
                 <div>
                   <h3 className="font-bebas text-lg text-white mb-2.5 tracking-wider">Cuentas Registradas</h3>
                   <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
@@ -2248,6 +2287,7 @@ export default function App() {
                 </div>
               </div>
             </div>
+            */}
 
           </div>
         )}
@@ -2426,6 +2466,198 @@ export default function App() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function DigitalMenuBoard({ products }: { products: FoodItem[] }) {
+  const hamburguesas = products.filter(p => p.category === 'Hamburguesas')
+  const combos = products.filter(p => p.category === 'Combos')
+  const bebidas = products.filter(p => p.category === 'Bebidas')
+  const promos = products.filter(p => p.category === 'Promos')
+  const otros = products.filter(p => p.category === 'Otros')
+
+  // Rotating featured item
+  const featuredProducts = products.filter(p => p.category === 'Promos' || p.category === 'Combos' || p.category === 'Hamburguesas').slice(0, 5)
+  const [featuredIndex, setFeaturedIndex] = useState(0)
+
+  useEffect(() => {
+    if (featuredProducts.length <= 1) return
+    const interval = setInterval(() => {
+      setFeaturedIndex(prev => (prev + 1) % featuredProducts.length)
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [featuredProducts.length])
+
+  const featured = featuredProducts[featuredIndex]
+
+  return (
+    <div className="min-h-screen bg-black text-white p-6 flex flex-col font-poppins selection:bg-red-600 selection:text-white relative overflow-hidden">
+      {/* Neon effect backdrop */}
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-amber-500/10 blur-[150px] rounded-full pointer-events-none"></div>
+
+      {/* --- BOARD HEADER --- */}
+      <header className="border-b border-zinc-900 bg-zinc-950/40 backdrop-blur pb-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 z-10">
+        <div className="flex items-center gap-4">
+          <HeaderNeonBurger />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bebas text-3xl tracking-wider text-white">BURGERS</span>
+              <span className="font-bebas text-3xl tracking-widest text-red-600 neon-glow-text-red">J&E</span>
+            </div>
+            <p className="text-xs text-zinc-500 m-0 font-poppins uppercase tracking-widest font-semibold">SABOR QUE PRENDE, ESTILO QUE SORPRENDE</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="bg-zinc-900/80 px-4 py-2 rounded-xl border border-zinc-800 text-center">
+            <span className="text-[10px] text-zinc-500 font-bold block uppercase tracking-wider">Ordena por WhatsApp</span>
+            <span className="text-sm font-mono text-yellow-accent font-bold">🍔 J&E POS Digital</span>
+          </div>
+        </div>
+      </header>
+
+      {/* --- TWO COLUMNS LAYOUT: LEFT IS SPECIAL/FEATURED SLIDESHOW, RIGHT IS ENTIRE MENU GRID --- */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 z-10">
+        {/* LEFT COLUMN: FEATURED HIGHLIGHT (4/12 width) */}
+        {featured && (
+          <div className="lg:col-span-4 flex flex-col bg-zinc-950/80 rounded-3xl border border-zinc-900 p-6 justify-between h-full relative overflow-hidden group">
+            {/* Corner Decorative ribbon */}
+            <div className="absolute top-4 right-4 bg-red-600 text-white font-bebas text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold shadow-lg shadow-red-600/20 animate-pulse">
+              Recomendado ✨
+            </div>
+
+            <div className="space-y-6">
+              <h2 className="font-bebas text-3xl text-white tracking-wide border-b border-zinc-900 pb-3 m-0">🔥 RECOMENDADO DE HOY</h2>
+              
+              <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-900/50">
+                <img
+                  src={featured.image}
+                  alt={featured.title}
+                  className="w-full h-full object-cover transition-all duration-700 ease-out transform group-hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-bebas text-2xl text-yellow-accent tracking-wider m-0">
+                  {featured.title}
+                </h3>
+                <p className="text-sm text-zinc-400 font-poppins leading-relaxed m-0">
+                  {featured.description}
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-zinc-900 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">PRECIO ESPECIAL</span>
+                <span className="text-3xl font-mono text-red-500 font-bold">${featured.price}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">CATEGORÍA</span>
+                <span className="text-xs bg-zinc-900 text-zinc-300 border border-zinc-800 px-2 py-1 rounded uppercase font-semibold font-mono block mt-1">
+                  {featured.category}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RIGHT COLUMN: CATEGORIES LISTING (8/12 width) */}
+        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6 content-start h-full overflow-y-auto pr-2 max-h-[80vh] custom-scrollbar">
+          
+          {/* HAMBURGUESAS */}
+          {hamburguesas.length > 0 && (
+            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
+              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
+                🍔 HAMBURGUESAS
+              </h2>
+              <div className="space-y-4">
+                {hamburguesas.map(item => (
+                  <MenuListItem key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* COMBOS */}
+          {combos.length > 0 && (
+            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
+              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
+                🍟 COMBOS
+              </h2>
+              <div className="space-y-4">
+                {combos.map(item => (
+                  <MenuListItem key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PROMOS */}
+          {promos.length > 0 && (
+            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
+              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
+                📢 PROMOS ESPECIALES
+              </h2>
+              <div className="space-y-4">
+                {promos.map(item => (
+                  <MenuListItem key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* BEBIDAS & OTROS */}
+          {(bebidas.length > 0 || otros.length > 0) && (
+            <div className="bg-zinc-950/60 rounded-3xl border border-zinc-900 p-6 space-y-4">
+              <h2 className="font-bebas text-2xl text-white tracking-wider border-b border-zinc-900 pb-2 m-0 flex items-center gap-2">
+                🥤 BEBIDAS Y EXTRAS
+              </h2>
+              <div className="space-y-4">
+                {[...bebidas, ...otros].map(item => (
+                  <MenuListItem key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MenuListItem({ item }: { item: FoodItem }) {
+  return (
+    <div className="flex gap-4 items-start bg-zinc-900/20 hover:bg-zinc-900/40 p-3 rounded-2xl border border-zinc-900/60 transition-all duration-300">
+      {item.image && (
+        <img
+          src={item.image}
+          alt={item.title}
+          className="w-14 h-14 object-cover rounded-xl border border-zinc-800 shrink-0"
+          onError={(e) => {
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
+          }}
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-baseline gap-2">
+          <h3 className="font-bebas text-lg tracking-wider text-yellow-accent truncate m-0">
+            {item.title}
+          </h3>
+          <span className="font-mono text-sm text-red-500 font-bold shrink-0">
+            ${item.price}
+          </span>
+        </div>
+        <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-2 leading-relaxed m-0">
+          {item.description}
+        </p>
+      </div>
     </div>
   )
 }
