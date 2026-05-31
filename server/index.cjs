@@ -167,8 +167,31 @@ app.delete('/api/auth/users/:id', authenticateJWT, requireAdmin, async (req, res
   }
 })
 
+app.put('/api/auth/users/:id/password', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { password } = req.body
+
+    if (!password || password.trim().length < 4) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 4 caracteres' })
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    await prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword }
+    })
+
+    res.json({ message: 'Contraseña actualizada con éxito' })
+  } catch (error) {
+    console.error('Error al actualizar contraseña de usuario:', error)
+    res.status(500).json({ error: 'Error al actualizar contraseña' })
+  }
+})
+
 // 3. PRODUCTS MENU (Staff view / Admin CRUD)
-app.get('/api/products', authenticateJWT, async (req, res) => {
+app.get('/api/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       orderBy: { createdAt: 'asc' }
@@ -252,6 +275,72 @@ app.delete('/api/products/:id', authenticateJWT, requireAdmin, async (req, res) 
   } catch (error) {
     console.error('Error al eliminar producto:', error)
     res.status(500).json({ error: 'Error al eliminar producto' })
+  }
+})
+
+app.post('/api/products/restore', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    await prisma.product.deleteMany({})
+
+    const defaultProducts = [
+      {
+        title: 'LA VOLCÁN',
+        description: 'Doble carne de res selecta, queso cheddar derretido, tocino ahumado crujiente, aros de cebolla dorados y nuestra legendaria salsa secreta volcán.',
+        price: 149,
+        image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
+        category: 'Hamburguesas',
+        isCustom: false
+      },
+      {
+        title: 'COMBO CLÁSICO',
+        description: 'Nuestra jugosa hamburguesa clásica (carne premium, queso cheddar, lechuga fresca, rodajas de tomate) acompañada de papas fritas crujientes y bebida helada.',
+        price: 179,
+        image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=600&q=80',
+        category: 'Combos',
+        isCustom: false
+      },
+      {
+        title: 'MARTES DE BURGERS (2X1)',
+        description: '¡La promo de la semana! Pide dos de nuestras hamburguesas clásicas con queso por el precio de una. Ideal para compartir.',
+        price: 220,
+        image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80',
+        category: 'Promos',
+        isCustom: false
+      },
+      {
+        title: 'PAPAS SUPREMAS',
+        description: 'Papas fritas corte francés sazonadas, bañadas en abundante salsa de queso cheddar derretido y espolvoreadas con trocitos crujientes de tocino.',
+        price: 89,
+        image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80',
+        category: 'Otros',
+        isCustom: false
+      },
+      {
+        title: 'SODA DE LA CASA',
+        description: 'Refresco helado de cola servido con rodaja de limón y hielo en vaso especial coleccionable.',
+        price: 35,
+        image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80',
+        category: 'Bebidas',
+        isCustom: false
+      },
+      {
+        title: 'MALTEADA OREO',
+        description: 'Deliciosa y cremosa malteada artesanal de vainilla batida con galletas Oreo trituradas, coronada con crema batida y jarabe de chocolate.',
+        price: 65,
+        image: 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?auto=format&fit=crop&w=600&q=80',
+        category: 'Bebidas',
+        isCustom: false
+      }
+    ];
+
+    for (const prod of defaultProducts) {
+      await prisma.product.create({ data: prod })
+    }
+
+    res.json({ message: 'Base de datos de productos reestablecida con éxito' })
+  } catch (error) {
+    console.error('Error al restaurar productos:', error)
+    res.status(500).json({ error: 'Error al restaurar productos por defecto' })
   }
 })
 
@@ -350,6 +439,16 @@ app.delete('/api/orders/:id', authenticateJWT, async (req, res) => {
   } catch (error) {
     console.error('Error al eliminar pedido:', error)
     res.status(500).json({ error: 'Error al eliminar pedido' })
+  }
+})
+
+app.delete('/api/orders', authenticateJWT, requireAdmin, async (req, res) => {
+  try {
+    await prisma.order.deleteMany({})
+    res.json({ message: 'Historial de pedidos vaciado por completo' })
+  } catch (error) {
+    console.error('Error al vaciar pedidos:', error)
+    res.status(500).json({ error: 'Error al vaciar historial de pedidos' })
   }
 })
 

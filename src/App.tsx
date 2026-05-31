@@ -47,14 +47,6 @@ interface ToastMessage {
   type: 'success' | 'info' | 'error'
 }
 
-// --- MOCK CONSTANT USER PROFILE (NO LOGIN WALL) ---
-const CURRENT_USER: User = {
-  id: 'admin-id-default',
-  username: 'admin',
-  name: 'Administrador Principal',
-  role: 'ADMIN'
-}
-
 // --- IMAGES PRESETS ---
 const PRESET_IMAGES = [
   { label: 'Volcán Burger (Doble queso y aros)', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80' },
@@ -277,6 +269,27 @@ const generateUniqueId = (prefix: string = '') => {
 }
 
 export default function App() {
+  // --- AUTHENTICATION STATES ---
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem('burgers_je_user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
+  const [token, setToken] = useState<string>(() => {
+    return localStorage.getItem('burgers_je_token') || ''
+  })
+
+  const handleLogout = () => {
+    setCurrentUser(null)
+    setToken('')
+    localStorage.removeItem('burgers_je_user')
+    localStorage.removeItem('burgers_je_token')
+    showToast('Sesión cerrada con éxito', 'info')
+  }
+
   // --- POS DATA STATES ---
   const [products, setProducts] = useState<FoodItem[]>(() => {
     try {
@@ -305,26 +318,78 @@ export default function App() {
       return []
     }
   })
-  /*
-  const [posUsers, setPosUsers] = useState<User[]>(() => {
+
+  // --- FETCH PRODUCTS & ORDERS FROM BACKEND ---
+  const fetchProducts = async () => {
     try {
-      const local = localStorage.getItem('burgers_je_users')
-      if (local) {
-        return JSON.parse(local)
-      } else {
-        const defaultUsers: User[] = [
-          { id: 'admin-id-default', username: 'admin', name: 'Administrador Principal', role: 'ADMIN', createdAt: new Date().toISOString() },
-          { id: 'staff-id-default', username: 'staff', name: 'Personal de Caja', role: 'STAFF', createdAt: new Date().toISOString() }
-        ]
-        localStorage.setItem('burgers_je_users', JSON.stringify(defaultUsers))
-        return defaultUsers
+      const res = await fetch('/api/products')
+      if (res.ok) {
+        const data = await res.json()
+        setProducts(data)
+        localStorage.setItem('burgers_je_products', JSON.stringify(data))
       }
-    } catch (e) {
-      console.error(e)
-      return []
+    } catch (err) {
+      console.error('Error al cargar productos:', err)
     }
-  })
-  */
+  }
+
+  const fetchOrders = async () => {
+    if (!token) return
+    try {
+      const res = await fetch('/api/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setOrders(data)
+        localStorage.setItem('burgers_je_orders', JSON.stringify(data))
+      }
+    } catch (err) {
+      console.error('Error al cargar pedidos:', err)
+    }
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchProducts()
+  }, [])
+
+  useEffect(() => {
+    if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchOrders()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+
+  const [posUsers, setPosUsers] = useState<User[]>([])
+
+  const fetchUsers = async () => {
+    if (!token || currentUser?.role !== 'ADMIN') return
+    try {
+      const res = await fetch('/api/auth/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setPosUsers(data)
+      }
+    } catch (err) {
+      console.error('Error al cargar usuarios:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (token && currentUser?.role === 'ADMIN') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchUsers()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, currentUser])
 
   const [activeTab, setActiveTab] = useState<'pos' | 'pedidos' | 'admin'>('pos')
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas')
@@ -351,13 +416,11 @@ export default function App() {
   const [imagePreviewMode, setImagePreviewMode] = useState<'preset' | 'url'>('preset')
 
   // Admin User Form states
-  /*
   const [newUserUsername, setNewUserUsername] = useState('')
   const [newUserPassword, setNewUserPassword] = useState('')
   const [newUserName, setNewUserName] = useState('')
   const [newUserRole, setNewUserRole] = useState<'ADMIN' | 'STAFF'>('STAFF')
   const [userFormError, setUserFormError] = useState('')
-  */
 
   // Filter state for orders panel
   const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendiente' | 'En Cocina' | 'Listo' | 'Entregado' | 'Cancelado'>('Todos')
@@ -556,31 +619,32 @@ export default function App() {
     }
 
     try {
-      const localOrdersStr = localStorage.getItem('burgers_je_orders')
-      const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
-      const nextOrderNumber = currentOrders.length > 0 
-        ? Math.max(...currentOrders.map(o => o.orderNumber || 0)) + 1 
-        : 1
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          customerName: customerName.trim(),
+          items: cart,
+          subtotal,
+          tax: taxAmount,
+          total: grandTotal,
+          paymentMethod: isPaidWorkflow ? paymentMethod : 'Efectivo',
+          paymentAmountReceived: (isPaidWorkflow && paymentMethod === 'Efectivo') ? parseFloat(cashReceived) : undefined,
+          notes: checkoutNotes.trim() || undefined,
+          status: 'Pendiente',
+          isPaid: isPaidWorkflow
+        })
+      })
 
-      const newOrder: Order = {
-        id: generateUniqueId('order'),
-        orderNumber: nextOrderNumber,
-        customerName: customerName.trim(),
-        items: cart,
-        subtotal,
-        tax: taxAmount,
-        total: grandTotal,
-        paymentMethod: isPaidWorkflow ? paymentMethod : 'Efectivo',
-        paymentAmountReceived: (isPaidWorkflow && paymentMethod === 'Efectivo') ? parseFloat(cashReceived) : undefined,
-        notes: checkoutNotes.trim() || undefined,
-        status: 'Pendiente',
-        isPaid: isPaidWorkflow,
-        timestamp: new Date().toISOString()
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al guardar pedido en backend')
       }
 
-      const updatedOrders = [newOrder, ...currentOrders]
-      localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
-      setOrders(updatedOrders)
+      const newOrder = await res.json()
 
       showToast(
         isPaidWorkflow
@@ -596,9 +660,11 @@ export default function App() {
       setCheckoutNotes('')
       setCheckoutErrors({})
       setCheckoutStep('cart')
+      fetchOrders()
     } catch (err) {
       console.error(err)
-      showToast('Error al guardar el pedido localmente', 'error')
+      const msg = err instanceof Error ? err.message : 'Error al guardar el pedido en base de datos'
+      showToast(msg, 'error')
     }
   }
 
@@ -616,23 +682,25 @@ export default function App() {
     }
 
     try {
-      const localOrdersStr = localStorage.getItem('burgers_je_orders')
-      const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
-      const updatedOrders = currentOrders.map((o) => {
-        if (o.id === order.id) {
-          return {
-            ...o,
-            isPaid: true,
-            paymentMethod: payingMethod,
-            paymentAmountReceived: payingMethod === 'Efectivo' ? parseFloat(payingCashReceived) : undefined
-          }
-        }
-        return o
+      const res = await fetch(`/api/orders/${order.id}/pay`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          paymentMethod: payingMethod,
+          paymentAmountReceived: payingMethod === 'Efectivo' ? parseFloat(payingCashReceived) : undefined
+        })
       })
 
-      localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
-      setOrders(updatedOrders)
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al registrar el pago')
+      }
+
       showToast(`¡Pedido #${String(order.orderNumber).padStart(4, '0')} cobrado con éxito!`, 'success')
+      fetchOrders()
       
       // Reset states
       setPayingOrderId(null)
@@ -640,7 +708,8 @@ export default function App() {
       setPayingError('')
     } catch (err) {
       console.error(err)
-      showToast('Error al procesar el pago del pedido', 'error')
+      const msg = err instanceof Error ? err.message : 'Error al procesar el pago del pedido'
+      showToast(msg, 'error')
     }
   }
 
@@ -648,46 +717,78 @@ export default function App() {
   const handleDeleteOrder = async (orderId: string, orderNumber: number) => {
     if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el Pedido #${String(orderNumber).padStart(4, '0')}?`)) {
       try {
-        const localOrdersStr = localStorage.getItem('burgers_je_orders')
-        const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
-        const updatedOrders = currentOrders.filter((o) => o.id !== orderId)
-        
-        localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
-        setOrders(updatedOrders)
+        const res = await fetch(`/api/orders/${orderId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Error al eliminar el pedido')
+        }
+
         showToast(`Pedido #${String(orderNumber).padStart(4, '0')} eliminado`, 'error')
+        fetchOrders()
       } catch (err) {
         console.error(err)
-        showToast('Error al eliminar el pedido', 'error')
+        const msg = err instanceof Error ? err.message : 'Error al eliminar el pedido'
+        showToast(msg, 'error')
       }
     }
   }
 
-  const handleClearOrderHistory = () => {
+  const handleClearOrderHistory = async () => {
     if (confirm('¿Estás seguro de que deseas vaciar todo el historial de pedidos de forma permanente?')) {
-      localStorage.setItem('burgers_je_orders', JSON.stringify([]))
-      setOrders([])
-      showToast('Historial de pedidos vaciado por completo', 'error')
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Error al vaciar historial de pedidos')
+        }
+
+        showToast('Historial de pedidos vaciado por completo', 'error')
+        fetchOrders()
+      } catch (err) {
+        console.error(err)
+        const msg = err instanceof Error ? err.message : 'Error al vaciar historial de pedidos'
+        showToast(msg, 'error')
+      }
     }
   }
 
   // --- ORDER STATUS TRANSITIONS TO DATABASE ---
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
-      const localOrdersStr = localStorage.getItem('burgers_je_orders')
-      const currentOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : []
-      const updatedOrders = currentOrders.map((o) => {
-        if (o.id === orderId) {
-          return { ...o, status: newStatus }
-        }
-        return o
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
       })
 
-      localStorage.setItem('burgers_je_orders', JSON.stringify(updatedOrders))
-      setOrders(updatedOrders)
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al actualizar estado del pedido')
+      }
+
       showToast(`Pedido actualizado a estado: ${newStatus}`, 'info')
+      fetchOrders()
     } catch (err) {
       console.error(err)
-      showToast('Error al actualizar estado del pedido', 'error')
+      const msg = err instanceof Error ? err.message : 'Error al actualizar estado del pedido'
+      showToast(msg, 'error')
     }
   }
 
@@ -718,58 +819,62 @@ export default function App() {
     const finalImage = formImage.trim() || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
 
     try {
-      const localProductsStr = localStorage.getItem('burgers_je_products')
-      const currentProducts: FoodItem[] = localProductsStr ? JSON.parse(localProductsStr) : []
-
       if (editingItem) {
-        // Edit product
-        const updatedProducts = currentProducts.map((item) => {
-          if (item.id === editingItem.id) {
-            return {
-              ...item,
-              title: formTitle.trim().toUpperCase(),
-              description: formDescription.trim(),
-              price: priceNum,
-              image: finalImage,
-              category: formCategory
-            }
-          }
-          return item
+        // Edit product in Backend DB
+        const res = await fetch(`/api/products/${editingItem.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title: formTitle.trim().toUpperCase(),
+            description: formDescription.trim(),
+            price: priceNum,
+            image: finalImage,
+            category: formCategory
+          })
         })
 
-        localStorage.setItem('burgers_je_products', JSON.stringify(updatedProducts))
-        setProducts(updatedProducts)
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Error al actualizar producto')
+        }
+
         showToast(`Producto "${formTitle.toUpperCase()}" actualizado`, 'success')
+        fetchProducts()
         handleResetAdminForm()
       } else {
-        // Create product
-        const normalizedTitle = formTitle.trim().toUpperCase()
-        const existing = currentProducts.some((item) => item.title === normalizedTitle)
+        // Create product in Backend DB
+        const res = await fetch('/api/products', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title: formTitle.trim().toUpperCase(),
+            description: formDescription.trim(),
+            price: priceNum,
+            image: finalImage,
+            category: formCategory
+          })
+        })
 
-        if (existing) {
-          showToast('Ya existe un producto con este título', 'error')
-          return
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Error al crear producto')
         }
 
-        const newProduct: FoodItem = {
-          id: generateUniqueId('prod'),
-          title: normalizedTitle,
-          description: formDescription.trim(),
-          price: priceNum,
-          image: finalImage,
-          category: formCategory,
-          isCustom: true
-        }
-
-        const updatedProducts = [...currentProducts, newProduct]
-        localStorage.setItem('burgers_je_products', JSON.stringify(updatedProducts))
-        setProducts(updatedProducts)
+        const newProduct = await res.json()
         showToast(`Producto "${newProduct.title}" añadido al menú`, 'success')
+        fetchProducts()
         handleResetAdminForm()
       }
     } catch (err) {
       console.error(err)
-      showToast('Error al guardar el producto', 'error')
+      const msg = err instanceof Error ? err.message : 'Error al guardar el producto'
+      showToast(msg, 'error')
     }
   }
 
@@ -804,20 +909,28 @@ export default function App() {
   const handleDeleteProduct = async (productId: string, title: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar "${title}" del menú?`)) {
       try {
-        const localProductsStr = localStorage.getItem('burgers_je_products')
-        const currentProducts: FoodItem[] = localProductsStr ? JSON.parse(localProductsStr) : []
-        const updatedProducts = currentProducts.filter((item) => item.id !== productId)
+        const res = await fetch(`/api/products/${productId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
 
-        localStorage.setItem('burgers_je_products', JSON.stringify(updatedProducts))
-        setProducts(updatedProducts)
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Error al eliminar producto')
+        }
+
         setCart((prev) => prev.filter((item) => item.product.id !== productId))
         showToast(`"${title}" eliminado del menú`, 'error')
+        fetchProducts()
         if (editingItem?.id === productId) {
           handleResetAdminForm()
         }
       } catch (err) {
         console.error(err)
-        showToast('Error al eliminar producto', 'error')
+        const msg = err instanceof Error ? err.message : 'Error al eliminar producto'
+        showToast(msg, 'error')
       }
     }
   }
@@ -826,18 +939,29 @@ export default function App() {
     if (confirm('¿Restaurar base de datos de productos a los valores por defecto del sistema de diseño?')) {
       try {
         showToast('Restableciendo catálogo de comida...', 'info')
-        localStorage.setItem('burgers_je_products', JSON.stringify(DEFAULT_PRODUCTS))
-        setProducts(DEFAULT_PRODUCTS)
+        const res = await fetch('/api/products/restore', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Error al restaurar productos')
+        }
+
         showToast('Base de datos de productos reestablecida con éxito', 'success')
+        fetchProducts()
       } catch (err) {
         console.error(err)
-        showToast('Error al reestablecer productos', 'error')
+        const msg = err instanceof Error ? err.message : 'Error al reestablecer productos'
+        showToast(msg, 'error')
       }
     }
   }
 
   // --- ADMIN SYSTEM USER MANAGEMENT CRUD ---
-  /*
   const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setUserFormError('')
@@ -848,28 +972,28 @@ export default function App() {
     }
 
     try {
-      const normalizedUsername = newUserUsername.trim().toLowerCase()
-      const localUsersStr = localStorage.getItem('burgers_je_users')
-      const currentUsers: User[] = localUsersStr ? JSON.parse(localUsersStr) : []
+      const res = await fetch('/api/auth/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          username: newUserUsername.trim(),
+          password: newUserPassword.trim(),
+          name: newUserName.trim(),
+          role: newUserRole
+        })
+      })
 
-      if (currentUsers.some((u) => u.username === normalizedUsername)) {
-        setUserFormError('El nombre de usuario ya está registrado')
-        return
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al guardar el usuario')
       }
 
-      const newUser: User = {
-        id: generateUniqueId('user'),
-        username: normalizedUsername,
-        name: newUserName.trim(),
-        role: newUserRole,
-        createdAt: new Date().toISOString()
-      }
+      showToast(`Usuario "${newUserUsername.toUpperCase()}" creado correctamente`, 'success')
+      fetchUsers()
 
-      const updatedUsers = [newUser, ...currentUsers]
-      localStorage.setItem('burgers_je_users', JSON.stringify(updatedUsers))
-      setPosUsers(updatedUsers)
-      showToast(`Usuario "${newUser.username.toUpperCase()}" creado correctamente`, 'success')
-      
       // Reset user forms
       setNewUserUsername('')
       setNewUserPassword('')
@@ -877,31 +1001,71 @@ export default function App() {
       setNewUserRole('STAFF')
     } catch (err) {
       console.error(err)
-      setUserFormError('Error al guardar el usuario')
+      const msg = err instanceof Error ? err.message : 'Error al guardar el usuario'
+      setUserFormError(msg)
     }
   }
 
   const handleDeleteUser = async (userId: string, username: string) => {
     if (confirm(`¿Estás seguro de que deseas desactivar la cuenta del personal "${username.toUpperCase()}"?`)) {
       try {
-        if (userId === 'admin-id-default') {
-          showToast('No puedes eliminar la cuenta de administrador principal por defecto', 'error')
-          return
-        }
-        const localUsersStr = localStorage.getItem('burgers_je_users')
-        const currentUsers: User[] = localUsersStr ? JSON.parse(localUsersStr) : []
-        const updatedUsers = currentUsers.filter((u) => u.id !== userId)
+        const res = await fetch(`/api/auth/users/${userId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
 
-        localStorage.setItem('burgers_je_users', JSON.stringify(updatedUsers))
-        setPosUsers(updatedUsers)
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || 'Error al eliminar usuario')
+        }
+
         showToast(`Cuenta de personal "${username.toUpperCase()}" eliminada`, 'error')
+        fetchUsers()
       } catch (err) {
         console.error(err)
-        showToast('Error al borrar personal', 'error')
+        const msg = err instanceof Error ? err.message : 'Error al borrar personal'
+        showToast(msg, 'error')
       }
     }
   }
-  */
+
+  const [changingPasswordUserId, setChangingPasswordUserId] = useState<string | null>(null)
+  const [newPasswordValue, setNewPasswordValue] = useState('')
+
+  const handleChangeUserPassword = async (userId: string) => {
+    if (!newPasswordValue.trim() || newPasswordValue.trim().length < 4) {
+      showToast('La contraseña debe tener al menos 4 caracteres', 'error')
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/auth/users/${userId}/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          password: newPasswordValue.trim()
+        })
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Error al cambiar contraseña')
+      }
+
+      showToast('Contraseña actualizada con éxito', 'success')
+      setChangingPasswordUserId(null)
+      setNewPasswordValue('')
+    } catch (err) {
+      console.error(err)
+      const msg = err instanceof Error ? err.message : 'Error al cambiar contraseña'
+      showToast(msg, 'error')
+    }
+  }
 
   // --- STATS CALCULATIONS ---
   const statsSalesTotal = orders
@@ -936,6 +1100,20 @@ export default function App() {
     return <DigitalMenuBoard products={products} featuredProductId={featuredProductId} />
   }
 
+  if (!currentUser) {
+    return (
+      <LoginWall
+        onLoginSuccess={(user, token) => {
+          setCurrentUser(user)
+          setToken(token)
+          localStorage.setItem('burgers_je_user', JSON.stringify(user))
+          localStorage.setItem('burgers_je_token', token)
+          showToast(`¡Bienvenido de vuelta, ${user.name}!`, 'success')
+        }}
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-white relative font-poppins selection:bg-red-600 selection:text-white">
       {/* Decorative neon backdrop */}
@@ -961,9 +1139,21 @@ export default function App() {
               <span className="font-bebas text-2xl tracking-wider text-white">BURGERS</span>
               <span className="font-bebas text-2xl tracking-widest text-red-600 neon-glow-text-red">J&E</span>
             </div>
-            <p className="text-xs font-semibold text-amber-500 font-bebas m-0 tracking-widest uppercase">
-              {CURRENT_USER.name} ({CURRENT_USER.role})
-            </p>
+            {currentUser && (
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs font-semibold text-amber-500 font-bebas m-0 tracking-widest uppercase">
+                  {currentUser.name} ({currentUser.role})
+                </p>
+                <button
+                  onClick={handleLogout}
+                  className="bg-red-950/40 hover:bg-red-900/40 text-red-400 hover:text-red-300 border border-red-900/30 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase transition-all flex items-center gap-1 cursor-pointer shadow-sm shadow-red-950"
+                  title="Cerrar Sesión"
+                >
+                  <span>CERRAR SESIÓN</span>
+                  <span>🚪</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2202,7 +2392,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* COLUMN 3: STAFF ACCOUNTS USER CONFIG (1/3) - HIDDEN BY USER REQUEST
+            {/* COLUMN 3: STAFF ACCOUNTS USER CONFIG (1/3) */}
             <div className="w-full xl:w-[420px] bg-zinc-950 rounded-2xl border border-zinc-900 p-6 flex flex-col justify-between">
               <div>
                 <div className="border-b border-zinc-900 pb-4 mb-5">
@@ -2276,34 +2466,65 @@ export default function App() {
                     {posUsers.map((u) => (
                       <div
                         key={u.id}
-                        className="bg-zinc-900/50 p-2.5 rounded-xl border border-zinc-900 flex justify-between items-center gap-3"
+                        className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-900 flex flex-col gap-2"
                       >
-                        <div className="min-w-0">
-                          <h4 className="font-bebas text-base text-yellow-accent m-0 flex items-center gap-2">
-                            {u.name}
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                              u.role === 'ADMIN' ? 'bg-red-950 text-red-400 border border-red-900/60' : 'bg-zinc-800 text-zinc-400'
-                            }`}>
-                              {u.role}
-                            </span>
-                          </h4>
-                          <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">Usuario: @{u.username}</span>
+                        <div className="flex justify-between items-center gap-3">
+                          <div className="min-w-0">
+                            <h4 className="font-bebas text-base text-yellow-accent m-0 flex items-center gap-2">
+                              {u.name}
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                u.role === 'ADMIN' ? 'bg-red-950 text-red-400 border border-red-900/60' : 'bg-zinc-800 text-zinc-400'
+                              }`}>
+                                {u.role}
+                              </span>
+                            </h4>
+                            <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">Usuario: @{u.username}</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => {
+                                setChangingPasswordUserId(changingPasswordUserId === u.id ? null : u.id)
+                                setNewPasswordValue('')
+                              }}
+                              className="bg-zinc-950 hover:bg-zinc-800 border border-zinc-850 p-1.5 rounded-lg text-xs hover:text-white cursor-pointer"
+                              title="Cambiar contraseña"
+                            >
+                              🔑
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(u.id, u.username)}
+                              disabled={currentUser?.id === u.id || u.username === 'admin'}
+                              className="bg-zinc-950 hover:bg-red-950/40 border border-zinc-850 p-1.5 rounded-lg text-xs hover:text-red-400 disabled:opacity-30 disabled:hover:bg-zinc-950 disabled:hover:text-zinc-600 cursor-pointer disabled:cursor-not-allowed"
+                              title="Eliminar usuario"
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteUser(u.id, u.username)}
-                          disabled={CURRENT_USER.id === u.id || u.username === 'admin'}
-                          className="bg-zinc-950 hover:bg-red-950/40 border border-zinc-850 p-1.5 rounded-lg text-xs hover:text-red-400 disabled:opacity-30 disabled:hover:bg-zinc-950 disabled:hover:text-zinc-600 cursor-pointer disabled:cursor-not-allowed"
-                          title="Eliminar usuario"
-                        >
-                          🗑️
-                        </button>
+
+                        {changingPasswordUserId === u.id && (
+                          <div className="border-t border-zinc-900/60 pt-2 flex gap-2">
+                            <input
+                              type="password"
+                              placeholder="Nueva contraseña..."
+                              value={newPasswordValue}
+                              onChange={(e) => setNewPasswordValue(e.target.value)}
+                              className="custom-input py-1.5 text-[11px] flex-1 bg-zinc-950"
+                            />
+                            <button
+                              onClick={() => handleChangeUserPassword(u.id)}
+                              className="bg-amber-500 hover:bg-amber-600 text-black font-bebas text-xs px-2.5 rounded-lg font-bold transition-colors cursor-pointer"
+                            >
+                              💾 GUARDAR
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
             </div>
-            */}
 
             {/* COLUMN 3: FEATURED RECOMMENDATION SELECTION (1/3) */}
             <div className="w-full xl:w-[420px] bg-zinc-950 rounded-2xl border border-zinc-900 p-6 flex flex-col justify-between">
@@ -2593,21 +2814,24 @@ function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[
   const featured = selectedFeatured || fallbackFeaturedProducts[featuredIndex]
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 flex flex-col font-poppins selection:bg-red-600 selection:text-white relative overflow-hidden">
+    <div className="h-screen w-screen bg-black text-white p-6 flex flex-col font-poppins relative overflow-hidden select-none">
       {/* Neon effect backdrop */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-amber-500/10 blur-[150px] rounded-full pointer-events-none"></div>
 
       {/* --- BOARD HEADER --- */}
-      <header className="border-b border-zinc-900 bg-zinc-950/40 backdrop-blur pb-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 z-10">
+      <header className="h-[10%] border-b border-zinc-900 bg-zinc-950/20 backdrop-blur pb-4 flex items-center justify-between z-10">
         <div className="flex items-center gap-4">
           <HeaderNeonBurger />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bebas text-3xl tracking-wider text-white">BURGERS</span>
               <span className="font-bebas text-3xl tracking-widest text-red-600 neon-glow-text-red">J&E</span>
+              <span className="ml-3 bg-red-950 text-red-500 border border-red-900/40 text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+                Menú en Vivo 📺
+              </span>
             </div>
-            <p className="text-xs text-zinc-500 m-0 font-poppins uppercase tracking-widest font-semibold">SABOR QUE PRENDE, ESTILO QUE SORPRENDE</p>
+            <p className="text-[10px] text-zinc-500 m-0 font-poppins uppercase tracking-widest font-semibold">SABOR QUE PRENDE, ESTILO QUE SORPRENDE</p>
           </div>
         </div>
 
@@ -2620,17 +2844,17 @@ function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[
       </header>
 
       {/* --- TWO COLUMNS LAYOUT: LEFT IS SPECIAL/FEATURED SLIDESHOW, RIGHT IS ENTIRE MENU GRID --- */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 z-10 items-stretch">
+      <div className="h-[88%] grid grid-cols-12 gap-6 mt-4 z-10 items-stretch">
         {/* LEFT COLUMN: FEATURED HIGHLIGHT (4/12 width) */}
         {featured && (
-          <div className="lg:col-span-4 flex flex-col bg-zinc-950/80 rounded-3xl border border-zinc-900 p-6 justify-between relative overflow-hidden group min-h-[500px]">
+          <div className="col-span-4 flex flex-col bg-zinc-950/80 rounded-3xl border border-zinc-900 p-6 justify-between relative overflow-hidden group h-full">
             {/* Corner Decorative ribbon */}
             <div className="absolute top-4 right-4 bg-red-600 text-white font-bebas text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold shadow-lg shadow-red-600/20 animate-pulse">
               Recomendación de Hoy ✨
             </div>
 
             <div className="space-y-6">
-              <h2 className="font-bebas text-3xl text-white tracking-wide border-b border-zinc-900 pb-3 m-0">🔥 RECOMENDADO</h2>
+              <h2 className="font-bebas text-2xl text-white tracking-wide border-b border-zinc-900 pb-2 m-0">🔥 LO DESTACADO</h2>
               
               <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-900/50">
                 <img
@@ -2647,7 +2871,7 @@ function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[
                 <h3 className="font-bebas text-2xl text-yellow-accent tracking-wider m-0">
                   {featured.title}
                 </h3>
-                <p className="text-sm text-zinc-400 font-poppins leading-relaxed m-0">
+                <p className="text-xs text-zinc-400 font-poppins leading-relaxed m-0 line-clamp-3">
                   {featured.description}
                 </p>
               </div>
@@ -2668,64 +2892,68 @@ function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[
           </div>
         )}
 
-        {/* RIGHT COLUMN: CATEGORIES LISTING (8/12 width) */}
-        <div className="lg:col-span-8 flex flex-col gap-8 h-full overflow-y-auto pr-2 max-h-[85vh] custom-scrollbar">
+        {/* RIGHT COLUMN: GRID OF CATEGORIES (8/12 width) - NO SCROLLBARS */}
+        <div className="col-span-8 grid grid-cols-2 grid-rows-2 gap-4 h-full">
           
           {/* HAMBURGUESAS */}
-          {hamburguesas.length > 0 && (
-            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
-              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
+          <div className="bg-zinc-950/40 rounded-2xl border border-zinc-900 p-5 flex flex-col justify-between overflow-hidden">
+            <div>
+              <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
                 🍔 HAMBURGUESAS PREMIUM
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {hamburguesas.map(item => (
-                  <MenuListItem key={item.id} item={item} />
+              <div className="space-y-2 max-h-[140px] overflow-hidden">
+                {hamburguesas.slice(0, 3).map(item => (
+                  <MenuCompactItem key={item.id} item={item} />
                 ))}
               </div>
             </div>
-          )}
+            <p className="text-[9px] text-zinc-500 font-mono m-0 text-right uppercase tracking-wider">Carne 100% de res premium</p>
+          </div>
 
           {/* COMBOS */}
-          {combos.length > 0 && (
-            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
-              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
-                🍟 COMBOS CON PAPAS Y BEBIDA
+          <div className="bg-zinc-950/40 rounded-2xl border border-zinc-900 p-5 flex flex-col justify-between overflow-hidden">
+            <div>
+              <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
+                🍟 COMBOS CON PAPAS
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {combos.map(item => (
-                  <MenuListItem key={item.id} item={item} />
+              <div className="space-y-2 max-h-[140px] overflow-hidden">
+                {combos.slice(0, 3).map(item => (
+                  <MenuCompactItem key={item.id} item={item} />
                 ))}
               </div>
             </div>
-          )}
+            <p className="text-[9px] text-zinc-500 font-mono m-0 text-right uppercase tracking-wider">Incluye papas medianas y refresco</p>
+          </div>
 
           {/* PROMOS */}
-          {promos.length > 0 && (
-            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
-              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
-                📢 PROMOS IMPERDIBLES
+          <div className="bg-zinc-950/40 rounded-2xl border border-zinc-900 p-5 flex flex-col justify-between overflow-hidden">
+            <div>
+              <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
+                📢 PROMOS DE LA SEMANA
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {promos.map(item => (
-                  <MenuListItem key={item.id} item={item} />
+              <div className="space-y-2 max-h-[140px] overflow-hidden">
+                {promos.slice(0, 3).map(item => (
+                  <MenuCompactItem key={item.id} item={item} />
                 ))}
               </div>
             </div>
-          )}
+            <p className="text-[9px] text-zinc-500 font-mono m-0 text-right uppercase tracking-wider">Válido por tiempo limitado</p>
+          </div>
 
           {/* BEBIDAS & OTROS */}
-          {(bebidas.length > 0 || otros.length > 0) && (
-            <div className="bg-zinc-950/40 rounded-3xl border border-zinc-900/80 p-6 space-y-5">
-              <h2 className="font-bebas text-2xl tracking-wider text-yellow-accent m-0 flex items-center gap-2 pb-2 border-b border-zinc-900/60">
+          <div className="bg-zinc-950/40 rounded-2xl border border-zinc-900 p-5 flex flex-col justify-between overflow-hidden">
+            <div>
+              <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
                 🥤 BEBIDAS Y EXTRAS
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[...bebidas, ...otros].map(item => (
-                  <MenuListItem key={item.id} item={item} />
+              <div className="space-y-2 max-h-[140px] overflow-hidden">
+                {[...bebidas, ...otros].slice(0, 4).map(item => (
+                  <MenuCompactItem key={item.id} item={item} />
                 ))}
               </div>
             </div>
-          )}
+            <p className="text-[9px] text-zinc-500 font-mono m-0 text-right uppercase tracking-wider">Servido helado con vaso coleccionable</p>
+          </div>
 
         </div>
       </div>
@@ -2733,39 +2961,151 @@ function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[
   )
 }
 
-function MenuListItem({ item }: { item: FoodItem }) {
+function MenuCompactItem({ item }: { item: FoodItem }) {
   return (
-    <div className="bg-zinc-950 rounded-2xl border border-zinc-900 hover:border-zinc-800 transition-all duration-300 overflow-hidden flex flex-col h-full shadow-lg shadow-black/40">
-      {item.image ? (
-        <div className="relative aspect-video w-full overflow-hidden border-b border-zinc-900 bg-zinc-900">
-          <img
-            src={item.image}
-            alt={item.title}
-            className="w-full h-full object-cover transition-all duration-500 hover:scale-105"
-            onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
-            }}
-          />
+    <div className="flex justify-between items-baseline border-b border-zinc-900 pb-1.5 gap-4">
+      <div className="min-w-0 flex-1">
+        <span className="font-bebas text-lg tracking-wide text-white block truncate m-0 leading-tight">
+          {item.title}
+        </span>
+        <p className="text-[10px] text-zinc-500 truncate m-0 leading-normal max-w-sm">
+          {item.description}
+        </p>
+      </div>
+      <span className="font-mono text-base text-red-500 font-bold shrink-0">
+        ${item.price}
+      </span>
+    </div>
+  )
+}
+
+interface LoginWallProps {
+  onLoginSuccess: (user: User, token: string) => void
+}
+
+function LoginWall({ onLoginSuccess }: LoginWallProps) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    
+    if (!username.trim() || !password.trim()) {
+      setError('Por favor ingresa usuario y contraseña.')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password.trim()
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Credenciales incorrectas')
+      }
+
+      onLoginSuccess(data.user, data.token)
+    } catch (err) {
+      console.error(err)
+      setError(err instanceof Error ? err.message : 'Error al conectar con el servidor')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center p-6 relative overflow-hidden font-poppins selection:bg-red-600 selection:text-white">
+      {/* Background glowing effects */}
+      <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
+      <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] bg-amber-500/10 blur-[150px] rounded-full pointer-events-none"></div>
+      
+      <div className="w-full max-w-md bg-zinc-950/80 border border-zinc-900 rounded-3xl p-8 z-10 shadow-2xl relative">
+        <div className="flex flex-col items-center text-center gap-4 mb-8">
+          <div className="scale-125 mb-2">
+            <HeaderNeonBurger />
+          </div>
+          <div>
+            <div className="flex items-center justify-center gap-2">
+              <span className="font-bebas text-3xl sm:text-4xl tracking-wider text-white">BURGERS</span>
+              <span className="font-bebas text-3xl sm:text-4xl tracking-widest text-red-600 neon-glow-text-red">J&E</span>
+            </div>
+            <p className="text-xs text-zinc-500 m-0 font-poppins uppercase tracking-widest mt-1 font-semibold">
+              SISTEMA POS & CONTROL DE VENTAS
+            </p>
+          </div>
         </div>
-      ) : (
-        <div className="relative aspect-video w-full overflow-hidden border-b border-zinc-900 bg-zinc-900 flex items-center justify-center">
-          <span className="text-4xl">🍔</span>
-        </div>
-      )}
-      <div className="p-5 flex flex-col justify-between flex-1 gap-4">
-        <div>
-          <h3 className="font-bebas text-xl sm:text-2xl tracking-wider text-yellow-accent m-0 leading-tight">
-            {item.title}
-          </h3>
-          <p className="text-xs text-zinc-400 mt-2 line-clamp-3 leading-relaxed font-poppins m-0">
-            {item.description}
-          </p>
-        </div>
-        <div className="flex justify-between items-center border-t border-zinc-900/80 pt-3">
-          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">PRECIO</span>
-          <span className="font-mono text-lg sm:text-xl text-red-500 font-bold">
-            ${item.price}
-          </span>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="bg-red-950/30 border border-red-500/30 p-3 rounded-xl text-xs text-red-400 font-semibold flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">
+              Usuario de Acceso
+            </label>
+            <input
+              type="text"
+              placeholder="Ej. admin, staff..."
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="custom-input py-3 w-full"
+              disabled={isLoading}
+              autoComplete="username"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="custom-input py-3 w-full"
+              disabled={isLoading}
+              autoComplete="current-password"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-bebas text-lg py-3 rounded-xl tracking-wider transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-600/25 mt-2 flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                INICIANDO SESIÓN...
+              </>
+            ) : (
+              '🔓 ENTRAR AL SISTEMA'
+            )}
+          </button>
+        </form>
+
+        <div className="text-[10px] text-zinc-600 font-mono text-center mt-8">
+          © {new Date().getFullYear()} BURGERS J&E • v1.0.0
         </div>
       </div>
     </div>
