@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { supabase } from './supabaseClient'
+import bcrypt from 'bcryptjs'
 
 // --- INTERFACES ---
 interface FoodItem {
@@ -319,12 +321,16 @@ export default function App() {
     }
   })
 
-  // --- FETCH PRODUCTS & ORDERS FROM BACKEND ---
+  // --- FETCH PRODUCTS & ORDERS FROM SUPABASE ---
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products')
-      if (res.ok) {
-        const data = await res.json()
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('createdAt', { ascending: true })
+
+      if (error) throw error
+      if (data) {
         setProducts(data)
         localStorage.setItem('burgers_je_products', JSON.stringify(data))
       }
@@ -336,13 +342,13 @@ export default function App() {
   const fetchOrders = async () => {
     if (!token) return
     try {
-      const res = await fetch('/api/orders', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      if (res.ok) {
-        const data = await res.json()
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('timestamp', { ascending: false })
+
+      if (error) throw error
+      if (data) {
         setOrders(data)
         localStorage.setItem('burgers_je_orders', JSON.stringify(data))
       }
@@ -351,9 +357,78 @@ export default function App() {
     }
   }
 
+  const initSupabaseData = async () => {
+    try {
+      // 1. Check if pos_users table is empty
+      const { data: users, error: usersError } = await supabase
+        .from('pos_users')
+        .select('id')
+        .limit(1)
+      
+      if (usersError) {
+        console.error('Error al verificar usuarios:', usersError)
+        return
+      }
+
+      if (!users || users.length === 0) {
+        // Seed default users
+        const adminPasswordHash = bcrypt.hashSync('admin123', 10)
+        const staffPasswordHash = bcrypt.hashSync('staff123', 10)
+
+        await supabase.from('pos_users').insert([
+          {
+            username: 'admin',
+            password: adminPasswordHash,
+            name: 'Administrador Principal',
+            role: 'ADMIN',
+            createdAt: new Date().toISOString()
+          },
+          {
+            username: 'staff',
+            password: staffPasswordHash,
+            name: 'Personal de Caja',
+            role: 'STAFF',
+            createdAt: new Date().toISOString()
+          }
+        ])
+        console.log('🌱 ¡Usuarios por defecto creados en Supabase!')
+      }
+
+      // 2. Check if products table is empty
+      const { data: prods, error: prodsError } = await supabase
+        .from('products')
+        .select('id')
+        .limit(1)
+      
+      if (prodsError) {
+        console.error('Error al verificar productos:', prodsError)
+        return
+      }
+
+      if (!prods || prods.length === 0) {
+        // Seed default products
+        await supabase.from('products').insert(DEFAULT_PRODUCTS.map(p => ({
+          title: p.title,
+          description: p.description,
+          price: p.price,
+          image: p.image,
+          category: p.category,
+          isCustom: false,
+          createdAt: new Date().toISOString()
+        })))
+        console.log('🌱 ¡Catálogo por defecto creado en Supabase!')
+        fetchProducts()
+      }
+    } catch (err) {
+      console.error('Error durante la inicialización automática:', err)
+    }
+  }
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchProducts()
+    initSupabaseData().then(() => {
+      fetchProducts()
+    })
   }, [])
 
   useEffect(() => {
@@ -369,13 +444,13 @@ export default function App() {
   const fetchUsers = async () => {
     if (!token || currentUser?.role !== 'ADMIN') return
     try {
-      const res = await fetch('/api/auth/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      if (res.ok) {
-        const data = await res.json()
+      const { data, error } = await supabase
+        .from('pos_users')
+        .select('*')
+        .order('createdAt', { ascending: false })
+
+      if (error) throw error
+      if (data) {
         setPosUsers(data)
       }
     } catch (err) {
@@ -619,32 +694,25 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const { data: newOrder, error } = await supabase
+        .from('orders')
+        .insert([{
           customerName: customerName.trim(),
           items: cart,
           subtotal,
           tax: taxAmount,
           total: grandTotal,
           paymentMethod: isPaidWorkflow ? paymentMethod : 'Efectivo',
-          paymentAmountReceived: (isPaidWorkflow && paymentMethod === 'Efectivo') ? parseFloat(cashReceived) : undefined,
-          notes: checkoutNotes.trim() || undefined,
+          paymentAmountReceived: (isPaidWorkflow && paymentMethod === 'Efectivo') ? parseFloat(cashReceived) : null,
+          notes: checkoutNotes.trim() || null,
           status: 'Pendiente',
-          isPaid: isPaidWorkflow
-        })
-      })
+          isPaid: isPaidWorkflow,
+          timestamp: new Date().toISOString()
+        }])
+        .select()
+        .single()
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Error al guardar pedido en backend')
-      }
-
-      const newOrder = await res.json()
+      if (error) throw error
 
       showToast(
         isPaidWorkflow
@@ -682,22 +750,16 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/orders/${order.id}/pay`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          isPaid: true,
           paymentMethod: payingMethod,
-          paymentAmountReceived: payingMethod === 'Efectivo' ? parseFloat(payingCashReceived) : undefined
+          paymentAmountReceived: payingMethod === 'Efectivo' ? parseFloat(payingCashReceived) : null
         })
-      })
+        .eq('id', order.id)
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Error al registrar el pago')
-      }
+      if (error) throw error
 
       showToast(`¡Pedido #${String(order.orderNumber).padStart(4, '0')} cobrado con éxito!`, 'success')
       fetchOrders()
@@ -717,17 +779,12 @@ export default function App() {
   const handleDeleteOrder = async (orderId: string, orderNumber: number) => {
     if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el Pedido #${String(orderNumber).padStart(4, '0')}?`)) {
       try {
-        const res = await fetch(`/api/orders/${orderId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        const { error } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', orderId)
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al eliminar el pedido')
-        }
+        if (error) throw error
 
         showToast(`Pedido #${String(orderNumber).padStart(4, '0')} eliminado`, 'error')
         fetchOrders()
@@ -742,17 +799,12 @@ export default function App() {
   const handleClearOrderHistory = async () => {
     if (confirm('¿Estás seguro de que deseas vaciar todo el historial de pedidos de forma permanente?')) {
       try {
-        const res = await fetch('/api/orders', {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        const { error } = await supabase
+          .from('orders')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al vaciar historial de pedidos')
-        }
+        if (error) throw error
 
         showToast('Historial de pedidos vaciado por completo', 'error')
         fetchOrders()
@@ -767,21 +819,12 @@ export default function App() {
   // --- ORDER STATUS TRANSITIONS TO DATABASE ---
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          status: newStatus
-        })
-      })
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId)
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Error al actualizar estado del pedido')
-      }
+      if (error) throw error
 
       showToast(`Pedido actualizado a estado: ${newStatus}`, 'info')
       fetchOrders()
@@ -820,54 +863,40 @@ export default function App() {
 
     try {
       if (editingItem) {
-        // Edit product in Backend DB
-        const res = await fetch(`/api/products/${editingItem.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
+        // Edit product in Supabase DB
+        const { error } = await supabase
+          .from('products')
+          .update({
             title: formTitle.trim().toUpperCase(),
             description: formDescription.trim(),
             price: priceNum,
             image: finalImage,
             category: formCategory
           })
-        })
+          .eq('id', editingItem.id)
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al actualizar producto')
-        }
+        if (error) throw error
 
         showToast(`Producto "${formTitle.toUpperCase()}" actualizado`, 'success')
         fetchProducts()
         handleResetAdminForm()
       } else {
-        // Create product in Backend DB
-        const res = await fetch('/api/products', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
+        // Create product in Supabase DB
+        const { error } = await supabase
+          .from('products')
+          .insert([{
             title: formTitle.trim().toUpperCase(),
             description: formDescription.trim(),
             price: priceNum,
             image: finalImage,
-            category: formCategory
-          })
-        })
+            category: formCategory,
+            isCustom: true,
+            createdAt: new Date().toISOString()
+          }])
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al crear producto')
-        }
+        if (error) throw error
 
-        const newProduct = await res.json()
-        showToast(`Producto "${newProduct.title}" añadido al menú`, 'success')
+        showToast(`Producto "${formTitle.trim().toUpperCase()}" añadido al menú`, 'success')
         fetchProducts()
         handleResetAdminForm()
       }
@@ -909,17 +938,12 @@ export default function App() {
   const handleDeleteProduct = async (productId: string, title: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar "${title}" del menú?`)) {
       try {
-        const res = await fetch(`/api/products/${productId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        const { error } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', productId)
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al eliminar producto')
-        }
+        if (error) throw error
 
         setCart((prev) => prev.filter((item) => item.product.id !== productId))
         showToast(`"${title}" eliminado del menú`, 'error')
@@ -939,17 +963,29 @@ export default function App() {
     if (confirm('¿Restaurar base de datos de productos a los valores por defecto del sistema de diseño?')) {
       try {
         showToast('Restableciendo catálogo de comida...', 'info')
-        const res = await fetch('/api/products/restore', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        
+        // Delete all products
+        const { error: deleteError } = await supabase
+          .from('products')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000')
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al restaurar productos')
-        }
+        if (deleteError) throw deleteError
+
+        // Insert default products
+        const { error: insertError } = await supabase
+          .from('products')
+          .insert(DEFAULT_PRODUCTS.map(p => ({
+            title: p.title,
+            description: p.description,
+            price: p.price,
+            image: p.image,
+            category: p.category,
+            isCustom: false,
+            createdAt: new Date().toISOString()
+          })))
+
+        if (insertError) throw insertError
 
         showToast('Base de datos de productos reestablecida con éxito', 'success')
         fetchProducts()
@@ -972,24 +1008,33 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('/api/auth/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          username: newUserUsername.trim(),
-          password: newUserPassword.trim(),
-          name: newUserName.trim(),
-          role: newUserRole
-        })
-      })
+      const normalizedUser = newUserUsername.toLowerCase().trim()
+      
+      // Check if username already exists in pos_users
+      const { data: existing, error: checkError } = await supabase
+        .from('pos_users')
+        .select('id')
+        .eq('username', normalizedUser)
+        .maybeSingle()
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Error al guardar el usuario')
+      if (checkError) throw checkError
+      if (existing) {
+        throw new Error('El nombre de usuario ya está registrado')
       }
+
+      const hashedPassword = bcrypt.hashSync(newUserPassword.trim(), 10)
+
+      const { error } = await supabase
+        .from('pos_users')
+        .insert([{
+          username: normalizedUser,
+          password: hashedPassword,
+          name: newUserName.trim(),
+          role: newUserRole,
+          createdAt: new Date().toISOString()
+        }])
+
+      if (error) throw error
 
       showToast(`Usuario "${newUserUsername.toUpperCase()}" creado correctamente`, 'success')
       fetchUsers()
@@ -1009,17 +1054,12 @@ export default function App() {
   const handleDeleteUser = async (userId: string, username: string) => {
     if (confirm(`¿Estás seguro de que deseas desactivar la cuenta del personal "${username.toUpperCase()}"?`)) {
       try {
-        const res = await fetch(`/api/auth/users/${userId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        const { error } = await supabase
+          .from('pos_users')
+          .delete()
+          .eq('id', userId)
 
-        if (!res.ok) {
-          const data = await res.json()
-          throw new Error(data.error || 'Error al eliminar usuario')
-        }
+        if (error) throw error
 
         showToast(`Cuenta de personal "${username.toUpperCase()}" eliminada`, 'error')
         fetchUsers()
@@ -1041,21 +1081,14 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(`/api/auth/users/${userId}/password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          password: newPasswordValue.trim()
-        })
-      })
+      const hashedPassword = bcrypt.hashSync(newPasswordValue.trim(), 10)
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Error al cambiar contraseña')
-      }
+      const { error } = await supabase
+        .from('pos_users')
+        .update({ password: hashedPassword })
+        .eq('id', userId)
+
+      if (error) throw error
 
       showToast('Contraseña actualizada con éxito', 'success')
       setChangingPasswordUserId(null)
@@ -3000,26 +3033,34 @@ function LoginWall({ onLoginSuccess }: LoginWallProps) {
 
     setIsLoading(true)
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password.trim()
-        })
-      })
+      const { data: user, error: fetchError } = await supabase
+        .from('pos_users')
+        .select('*')
+        .eq('username', username.toLowerCase().trim())
+        .maybeSingle()
 
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Credenciales incorrectas')
+      if (fetchError) throw fetchError
+      if (!user) {
+        throw new Error('Credenciales incorrectas')
       }
 
-      onLoginSuccess(data.user, data.token)
+      const isMatch = bcrypt.compareSync(password.trim(), user.password)
+      if (!isMatch) {
+        throw new Error('Credenciales incorrectas')
+      }
+
+      onLoginSuccess(
+        {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role
+        },
+        user.id
+      )
     } catch (err) {
       console.error(err)
-      setError(err instanceof Error ? err.message : 'Error al conectar con el servidor')
+      setError(err instanceof Error ? err.message : 'Error al conectar con la base de datos')
     } finally {
       setIsLoading(false)
     }
