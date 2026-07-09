@@ -2784,11 +2784,19 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="bg-zinc-900/80 px-4 py-2 rounded-xl border border-zinc-800 text-center">
-            <span className="text-[10px] text-zinc-500 font-bold block uppercase tracking-wider">Ordena por WhatsApp</span>
-            <span className="text-sm font-mono text-yellow-accent font-bold">
-              {whatsappNumber ? `📱 ${whatsappNumber}` : '🍔 J&E POS Digital'}
+          <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-3 rounded-2xl border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center animate-pulse relative overflow-hidden group">
+            {/* Glossy overlay effect */}
+            <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-700 ease-in-out"></div>
+            
+            <span className="text-xs text-emerald-100 font-bold block uppercase tracking-wider drop-shadow-md mb-1">
+              ¡Pide por WhatsApp! 🚀
             </span>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-2xl drop-shadow-lg">📱</span>
+              <span className="text-2xl font-bebas text-white tracking-widest drop-shadow-lg font-bold">
+                {whatsappNumber || 'J&E POS DIGITAL'}
+              </span>
+            </div>
           </div>
         </div>
       </header>
