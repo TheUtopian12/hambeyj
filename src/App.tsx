@@ -104,15 +104,7 @@ const BurgerLogoIcon = () => (
 
 const HeaderNeonBurger = () => (
   <svg viewBox="0 0 100 100" className="w-14 h-14" stroke="#FF282B" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <filter id="neon-glow-red-svg">
-      <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-      <feMerge>
-        <feMergeNode in="coloredBlur" />
-        <feMergeNode in="coloredBlur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-    <g filter="url(#neon-glow-red-svg)">
+    <g>
       {/* Top Bun */}
       <path d="M 15,45 C 15,20, 85,20, 85,45 Z" />
       {/* Lettuce */}
@@ -233,7 +225,7 @@ export default function App() {
   }
 
   // --- POS DATA STATES ---
-  const [whatsappNumber, setWhatsappNumber] = useState(() => localStorage.getItem('burgers_je_whatsapp') || '')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
 
   const [products, setProducts] = useState<FoodItem[]>(() => {
     try {
@@ -296,6 +288,17 @@ export default function App() {
 
   const initSupabaseData = async () => {
     try {
+      // 0. Load App Settings (WhatsApp)
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('id', 1)
+        .single()
+      
+      if (!settingsError && settingsData) {
+        setWhatsappNumber(settingsData.whatsapp_number || '')
+      }
+
       // 1. Check if pos_users table is empty
       const { data: users, error: usersError } = await supabase
         .from('pos_users')
@@ -399,9 +402,20 @@ export default function App() {
   const [formImage, setFormImage] = useState('')
   const [adminErrors, setAdminErrors] = useState<{ title?: string; price?: string; desc?: string }>({})
   const [isUploading, setIsUploading] = useState(false)
-  const handleSaveWhatsapp = (val: string) => {
+  const handleSaveWhatsapp = async (val: string) => {
     setWhatsappNumber(val)
-    localStorage.setItem('burgers_je_whatsapp', val)
+    // Save to DB
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ id: 1, whatsapp_number: val })
+      
+      if (error) {
+        console.error('Error al guardar WhatsApp en DB:', error)
+      }
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   // Admin User Form states
@@ -1059,7 +1073,7 @@ export default function App() {
       </div>
 
       {/* --- BRAND HEADER --- */}
-      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur sticky top-0 z-40 px-6 py-4 flex flex-col lg:flex-row items-center justify-between gap-4">
+      <header className="border-b border-zinc-900 bg-zinc-950 sticky top-0 z-40 px-6 py-4 flex flex-col lg:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <HeaderNeonBurger />
           <div>
@@ -1271,7 +1285,7 @@ export default function App() {
                     >
                       {/* Product Image */}
                       <div className="card-classic-img-container">
-                        <img
+                        <img loading="lazy"
                           src={item.image}
                           alt={item.title}
                           className="card-classic-img"
@@ -1282,7 +1296,7 @@ export default function App() {
                         {item.category === 'Promos' && (
                           <div className="card-classic-badge font-bold">🔥</div>
                         )}
-                        <span className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-md text-[10px] font-bold px-2 py-1 rounded text-amber-500 uppercase">
+                        <span className="absolute bottom-2 left-2 bg-black/90 text-[10px] font-bold px-2 py-1 rounded text-amber-500 uppercase">
                           {item.category}
                         </span>
                       </div>
@@ -1345,7 +1359,7 @@ export default function App() {
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-3 min-w-0">
-                                <img
+                                <img loading="lazy"
                                   src={item.product.image}
                                   alt={item.product.title}
                                   className="w-12 h-12 object-cover rounded-lg border border-zinc-800"
@@ -2176,7 +2190,7 @@ export default function App() {
                   {/* Image Preview Box */}
                   {formImage && (
                     <div className="bg-zinc-900/50 p-2 rounded-lg border border-zinc-800 flex items-center gap-3">
-                      <img
+                      <img loading="lazy"
                         src={formImage}
                         alt="Preview"
                         className="w-12 h-12 object-cover rounded border border-zinc-800"
@@ -2257,7 +2271,7 @@ export default function App() {
                             }`}
                         >
                           <td className="py-3">
-                            <img
+                            <img loading="lazy"
                               src={item.image}
                               alt=""
                               className="w-10 h-10 object-cover rounded-md border border-zinc-800"
@@ -2486,7 +2500,7 @@ export default function App() {
                         </div>
                         <div className="flex gap-4 items-center">
                           {featProd.image && (
-                            <img
+                            <img loading="lazy"
                               src={featProd.image}
                               alt={featProd.title}
                               className="w-16 h-16 object-cover rounded-xl border border-zinc-800"
@@ -2603,7 +2617,7 @@ export default function App() {
 
       {/* --- PRINT PREVIEW MODAL --- */}
       {printingOrder && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print overflow-y-auto">
+        <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4 no-print overflow-y-auto">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
 
             {/* Modal Header */}
@@ -2751,18 +2765,18 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
   return (
     <div className="min-h-screen lg:h-screen w-full bg-black text-white p-4 lg:p-6 flex flex-col font-poppins relative overflow-x-hidden overflow-y-auto lg:overflow-hidden select-none">
       {/* Neon effect backdrop */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-amber-500/10 blur-[150px] rounded-full pointer-events-none"></div>
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(220,38,38,0.15) 0%, rgba(0,0,0,0) 70%)" }}></div>
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.15) 0%, rgba(0,0,0,0) 70%)" }}></div>
 
       {/* --- BOARD HEADER --- */}
-      <header className="lg:h-[10%] border-b border-zinc-900 bg-zinc-950/20 backdrop-blur pb-4 pt-2 flex flex-col lg:flex-row items-center justify-between z-10 gap-4">
+      <header className="lg:h-[10%] border-b border-zinc-900 bg-zinc-950/80 pb-4 pt-2 flex flex-col lg:flex-row items-center justify-between z-10 gap-4">
         <div className="flex items-center gap-4">
           <HeaderNeonBurger />
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bebas text-3xl tracking-wider text-white">BURGERS</span>
               <span className="font-bebas text-3xl tracking-widest text-red-600 neon-glow-text-red">J&E</span>
-              <span className="ml-3 bg-red-950 text-red-500 border border-red-900/40 text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+              <span className="ml-3 bg-red-950 text-red-500 border border-red-900/40 text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
                 Menú en Vivo 📺
               </span>
             </div>
@@ -2771,7 +2785,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-r from-green-600 to-green-500 px-6 py-3 rounded-2xl border-2 border-green-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center animate-pulse relative overflow-hidden group">
+          <div className="bg-gradient-to-r from-green-600 to-green-500 px-6 py-3 rounded-2xl border-2 border-green-400 text-center relative overflow-hidden group shadow-lg">
             {/* Glossy overlay effect */}
             <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-700 ease-in-out"></div>
 
@@ -2802,10 +2816,10 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
               <h2 className="font-bebas text-2xl text-white tracking-wide border-b border-zinc-900 pb-2 m-0">🔥 LO DESTACADO</h2>
 
               <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-900/50">
-                <img
+                <img loading="lazy"
                   src={featured.image}
                   alt={featured.title}
-                  className="w-full h-full object-cover transition-all duration-700 ease-out transform group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out transform group-hover:scale-105"
                   onError={(e) => {
                     e.currentTarget.src = 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80'
                   }}
@@ -2981,8 +2995,8 @@ function LoginWall({ onLoginSuccess }: LoginWallProps) {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center p-6 relative overflow-hidden font-poppins selection:bg-red-600 selection:text-white">
       {/* Background glowing effects */}
-      <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] bg-amber-500/10 blur-[150px] rounded-full pointer-events-none"></div>
+      <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(220,38,38,0.15) 0%, rgba(0,0,0,0) 70%)" }}></div>
+      <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.15) 0%, rgba(0,0,0,0) 70%)" }}></div>
 
       <div className="w-full max-w-md bg-zinc-950/80 border border-zinc-900 rounded-3xl p-8 z-10 shadow-2xl relative">
         <div className="flex flex-col items-center text-center gap-4 mb-8">

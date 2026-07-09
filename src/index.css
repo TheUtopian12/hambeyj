@@ -369,7 +369,7 @@ body {
   background-repeat: no-repeat;
   background-size: contain;
   opacity: 0.12;
-  filter: drop-shadow(0 0 30px #FF282B) blur(1px);
+  filter: none;
   pointer-events: none;
   z-index: 0;
 }
