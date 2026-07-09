@@ -2761,13 +2761,13 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
   const featured = selectedFeatured || fallbackFeaturedProducts[featuredIndex]
 
   return (
-    <div className="h-screen w-screen bg-black text-white p-6 flex flex-col font-poppins relative overflow-hidden select-none">
+    <div className="min-h-screen lg:h-screen w-full bg-black text-white p-4 lg:p-6 flex flex-col font-poppins relative overflow-x-hidden overflow-y-auto lg:overflow-hidden select-none">
       {/* Neon effect backdrop */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-amber-500/10 blur-[150px] rounded-full pointer-events-none"></div>
 
       {/* --- BOARD HEADER --- */}
-      <header className="h-[10%] border-b border-zinc-900 bg-zinc-950/20 backdrop-blur pb-4 flex items-center justify-between z-10">
+      <header className="lg:h-[10%] border-b border-zinc-900 bg-zinc-950/20 backdrop-blur pb-4 pt-2 flex flex-col lg:flex-row items-center justify-between z-10 gap-4">
         <div className="flex items-center gap-4">
           <HeaderNeonBurger />
           <div>
@@ -2801,10 +2801,10 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
       </header>
 
       {/* --- TWO COLUMNS LAYOUT: LEFT IS SPECIAL/FEATURED SLIDESHOW, RIGHT IS ENTIRE MENU GRID --- */}
-      <div className="h-[88%] grid grid-cols-12 gap-6 mt-4 z-10 items-stretch">
+      <div className="lg:h-[88%] flex flex-col lg:grid lg:grid-cols-12 gap-6 mt-4 z-10 items-stretch pb-10 lg:pb-0">
         {/* LEFT COLUMN: FEATURED HIGHLIGHT (4/12 width) */}
         {featured && (
-          <div className="col-span-4 flex flex-col bg-zinc-950/80 rounded-3xl border border-zinc-900 p-6 justify-between relative overflow-hidden group h-full">
+          <div className="lg:col-span-4 flex flex-col bg-zinc-950/80 rounded-3xl border border-zinc-900 p-6 justify-between relative overflow-hidden group h-auto lg:h-full">
             {/* Corner Decorative ribbon */}
             <div className="absolute top-4 right-4 bg-red-600 text-white font-bebas text-xs px-3 py-1 rounded-full uppercase tracking-wider font-bold shadow-lg shadow-red-600/20 animate-pulse">
               Recomendación de Hoy ✨
@@ -2850,7 +2850,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
         )}
 
         {/* RIGHT COLUMN: GRID OF CATEGORIES (8/12 width) - NO SCROLLBARS */}
-        <div className="col-span-8 grid grid-cols-2 grid-rows-2 gap-4 h-full">
+        <div className="lg:col-span-8 grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-2 gap-4 h-auto lg:h-full">
           
           {/* HAMBURGUESAS */}
           <div className="bg-zinc-950/40 rounded-2xl border border-zinc-900 p-5 flex flex-col justify-between overflow-hidden">
@@ -2858,7 +2858,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
               <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
                 🍔 HAMBURGUESAS PREMIUM
               </h2>
-              <div className="space-y-2 max-h-[140px] overflow-hidden">
+              <div className="space-y-2 lg:max-h-[140px] overflow-hidden">
                 {hamburguesas.slice(0, 3).map(item => (
                   <MenuCompactItem key={item.id} item={item} />
                 ))}
@@ -2873,7 +2873,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
               <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
                 🍟 COMBOS CON PAPAS
               </h2>
-              <div className="space-y-2 max-h-[140px] overflow-hidden">
+              <div className="space-y-2 lg:max-h-[140px] overflow-hidden">
                 {combos.slice(0, 3).map(item => (
                   <MenuCompactItem key={item.id} item={item} />
                 ))}
@@ -2888,7 +2888,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
               <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
                 📢 PROMOS DE LA SEMANA
               </h2>
-              <div className="space-y-2 max-h-[140px] overflow-hidden">
+              <div className="space-y-2 lg:max-h-[140px] overflow-hidden">
                 {promos.slice(0, 3).map(item => (
                   <MenuCompactItem key={item.id} item={item} />
                 ))}
@@ -2903,7 +2903,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
               <h2 className="font-bebas text-xl text-yellow-accent tracking-wider border-b border-zinc-900/60 pb-1.5 mb-3 m-0 flex items-center gap-1.5">
                 🥤 BEBIDAS Y EXTRAS
               </h2>
-              <div className="space-y-2 max-h-[140px] overflow-hidden">
+              <div className="space-y-2 lg:max-h-[140px] overflow-hidden">
                 {[...bebidas, ...otros].slice(0, 4).map(item => (
                   <MenuCompactItem key={item.id} item={item} />
                 ))}
