@@ -169,7 +169,7 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
       onClose(toast.id)
     }, 1500)
     return () => clearTimeout(timer)
-  }, [toast.id])
+  }, [toast.id, onClose])
 
   return (
     <div
@@ -336,7 +336,6 @@ export default function App() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     initSupabaseData().then(() => {
       fetchProducts()
     })
