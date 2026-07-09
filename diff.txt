@@ -1,0 +1,113 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index cab69b5..10c4093 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -59,58 +59,6 @@ const PRESET_IMAGES = [
+   { label: 'Malteada Oreo', url: 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?auto=format&fit=crop&w=600&q=80' },
+ ]
+ 
+-// --- DEFAULT MENU SEED DATA ---
+-const DEFAULT_PRODUCTS: FoodItem[] = [
+-  {
+-    id: 'prod-volcan',
+-    title: 'LA VOLCÁN',
+-    description: 'Doble carne de res selecta, queso cheddar derretido, tocino ahumado crujiente, aros de cebolla dorados y nuestra legendaria salsa secreta volcán.',
+-    price: 149,
+-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
+-    category: 'Hamburguesas'
+-  },
+-  {
+-    id: 'prod-combo',
+-    title: 'COMBO CLÁSICO',
+-    description: 'Nuestra jugosa hamburguesa clásica (carne premium, queso cheddar, lechuga fresca, rodajas de tomate) acompañada de papas fritas crujientes y bebida helada.',
+-    price: 179,
+-    image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=600&q=80',
+-    category: 'Combos'
+-  },
+-  {
+-    id: 'prod-promo',
+-    title: 'MARTES DE BURGERS (2X1)',
+-    description: '¡La promo de la semana! Pide dos de nuestras hamburguesas clásicas con queso por el precio de una. Ideal para compartir.',
+-    price: 220,
+-    image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80',
+-    category: 'Promos'
+-  },
+-  {
+-    id: 'prod-papas',
+-    title: 'PAPAS SUPREMAS',
+-    description: 'Papas fritas corte francés sazonadas, bañadas en abundante salsa de queso cheddar derretido y espolvoreadas con trocitos crujientes de tocino.',
+-    price: 89,
+-    image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80',
+-    category: 'Otros'
+-  },
+-  {
+-    id: 'prod-soda',
+-    title: 'SODA DE LA CASA',
+-    description: 'Refresco helado de cola servido con rodaja de limón y hielo en vaso especial coleccionable.',
+-    price: 35,
+-    image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80',
+-    category: 'Bebidas'
+-  },
+-  {
+-    id: 'prod-malteada',
+-    title: 'MALTEADA OREO',
+-    description: 'Deliciosa y cremosa malteada artesanal de vainilla batida con galletas Oreo trituradas, coronada con crema batida y jarabe de chocolate.',
+-    price: 65,
+-    image: 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?auto=format&fit=crop&w=600&q=80',
+-    category: 'Bebidas'
+-  }
+-]
+-
+ // --- BEAUTIFUL SVG ICONS ---
+ const BurgerLogoIcon = () => (
+   <svg viewBox="0 0 100 100" className="w-24 h-24 max-w-full mx-auto select-none">
+@@ -293,18 +241,14 @@ export default function App() {
+   }
+ 
+   // --- POS DATA STATES ---
++  const [whatsappNumber, setWhatsappNumber] = useState(() => localStorage.getItem('burgers_je_whatsapp') || '');
++
+   const [products, setProducts] = useState<FoodItem[]>(() => {
+     try {
+       const local = localStorage.getItem('burgers_je_products')
+-      if (local) {
+-        return JSON.parse(local)
+-      } else {
+-        localStorage.setItem('burgers_je_products', JSON.stringify(DEFAULT_PRODUCTS))
+-        return DEFAULT_PRODUCTS
+-      }
++      return local ? JSON.parse(local) : []
+     } catch (e) {
+-      console.error(e)
+-      return DEFAULT_PRODUCTS
++      return []
+     }
+   })
+   const [cart, setCart] = useState<CartItem[]>(() => {
+@@ -1130,7 +1074,7 @@ export default function App() {
+   })
+ 
+   if (isMenuView) {
+-    return <DigitalMenuBoard products={products} featuredProductId={featuredProductId} />
++    return <DigitalMenuBoard products={products} featuredProductId={featuredProductId} whatsappNumber={whatsappNumber} />
+   }
+ 
+   if (!currentUser) {
+@@ -2819,7 +2763,7 @@ export default function App() {
+   )
+ }
+ 
+-function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[], featuredProductId: string }) {
++function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { products: FoodItem[], featuredProductId: string, whatsappNumber: string }) {
+   const hamburguesas = products.filter(p => p.category === 'Hamburguesas')
+   const combos = products.filter(p => p.category === 'Combos')
+   const bebidas = products.filter(p => p.category === 'Bebidas')
+@@ -2871,7 +2815,7 @@ function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[
+         <div className="flex items-center gap-4">
+           <div className="bg-zinc-900/80 px-4 py-2 rounded-xl border border-zinc-800 text-center">
+             <span className="text-[10px] text-zinc-500 font-bold block uppercase tracking-wider">Ordena por WhatsApp</span>
+-            <span className="text-sm font-mono text-yellow-accent font-bold">🍔 J&E POS Digital</span>
++            <span className="text-sm font-mono text-yellow-accent font-bold">{whatsappNumber ? `📱 ${whatsappNumber}` : '🍔 J&E POS Digital'}</span>
+           </div>
+         </div>
+       </header>

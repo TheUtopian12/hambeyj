@@ -49,67 +49,7 @@ interface ToastMessage {
   type: 'success' | 'info' | 'error'
 }
 
-// --- IMAGES PRESETS ---
-const PRESET_IMAGES = [
-  { label: 'Volcán Burger (Doble queso y aros)', url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Combo Burger (Papas y refresco)', url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Doble Clásica Stack', url: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Papas Cheddar & Tocino', url: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Refresco Cola Helado', url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Malteada Oreo', url: 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?auto=format&fit=crop&w=600&q=80' },
-]
 
-// --- DEFAULT MENU SEED DATA ---
-const DEFAULT_PRODUCTS: FoodItem[] = [
-  {
-    id: 'prod-volcan',
-    title: 'LA VOLCÁN',
-    description: 'Doble carne de res selecta, queso cheddar derretido, tocino ahumado crujiente, aros de cebolla dorados y nuestra legendaria salsa secreta volcán.',
-    price: 149,
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80',
-    category: 'Hamburguesas'
-  },
-  {
-    id: 'prod-combo',
-    title: 'COMBO CLÁSICO',
-    description: 'Nuestra jugosa hamburguesa clásica (carne premium, queso cheddar, lechuga fresca, rodajas de tomate) acompañada de papas fritas crujientes y bebida helada.',
-    price: 179,
-    image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=600&q=80',
-    category: 'Combos'
-  },
-  {
-    id: 'prod-promo',
-    title: 'MARTES DE BURGERS (2X1)',
-    description: '¡La promo de la semana! Pide dos de nuestras hamburguesas clásicas con queso por el precio de una. Ideal para compartir.',
-    price: 220,
-    image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80',
-    category: 'Promos'
-  },
-  {
-    id: 'prod-papas',
-    title: 'PAPAS SUPREMAS',
-    description: 'Papas fritas corte francés sazonadas, bañadas en abundante salsa de queso cheddar derretido y espolvoreadas con trocitos crujientes de tocino.',
-    price: 89,
-    image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80',
-    category: 'Otros'
-  },
-  {
-    id: 'prod-soda',
-    title: 'SODA DE LA CASA',
-    description: 'Refresco helado de cola servido con rodaja de limón y hielo en vaso especial coleccionable.',
-    price: 35,
-    image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80',
-    category: 'Bebidas'
-  },
-  {
-    id: 'prod-malteada',
-    title: 'MALTEADA OREO',
-    description: 'Deliciosa y cremosa malteada artesanal de vainilla batida con galletas Oreo trituradas, coronada con crema batida y jarabe de chocolate.',
-    price: 65,
-    image: 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?auto=format&fit=crop&w=600&q=80',
-    category: 'Bebidas'
-  }
-]
 
 // --- BEAUTIFUL SVG ICONS ---
 const BurgerLogoIcon = () => (
@@ -293,18 +233,15 @@ export default function App() {
   }
 
   // --- POS DATA STATES ---
+  const [whatsappNumber, setWhatsappNumber] = useState(() => localStorage.getItem('burgers_je_whatsapp') || '')
+
   const [products, setProducts] = useState<FoodItem[]>(() => {
     try {
       const local = localStorage.getItem('burgers_je_products')
-      if (local) {
-        return JSON.parse(local)
-      } else {
-        localStorage.setItem('burgers_je_products', JSON.stringify(DEFAULT_PRODUCTS))
-        return DEFAULT_PRODUCTS
-      }
+      return local ? JSON.parse(local) : []
     } catch (e) {
       console.error(e)
-      return DEFAULT_PRODUCTS
+      return []
     }
   })
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -393,32 +330,6 @@ export default function App() {
         ])
         console.log('🌱 ¡Usuarios por defecto creados en Supabase!')
       }
-
-      // 2. Check if products table is empty
-      const { data: prods, error: prodsError } = await supabase
-        .from('products')
-        .select('id')
-        .limit(1)
-      
-      if (prodsError) {
-        console.error('Error al verificar productos:', prodsError)
-        return
-      }
-
-      if (!prods || prods.length === 0) {
-        // Seed default products
-        await supabase.from('products').insert(DEFAULT_PRODUCTS.map(p => ({
-          title: p.title,
-          description: p.description,
-          price: p.price,
-          image: p.image,
-          category: p.category,
-          isCustom: false,
-          createdAt: new Date().toISOString()
-        })))
-        console.log('🌱 ¡Catálogo por defecto creado en Supabase!')
-        fetchProducts()
-      }
     } catch (err) {
       console.error('Error durante la inicialización automática:', err)
     }
@@ -488,7 +399,11 @@ export default function App() {
   const [formCategory, setFormCategory] = useState<'Hamburguesas' | 'Combos' | 'Bebidas' | 'Promos' | 'Otros'>('Hamburguesas')
   const [formImage, setFormImage] = useState('')
   const [adminErrors, setAdminErrors] = useState<{ title?: string; price?: string; desc?: string }>({})
-  const [imagePreviewMode, setImagePreviewMode] = useState<'preset' | 'url'>('preset')
+  const [isUploading, setIsUploading] = useState(false)
+  const handleSaveWhatsapp = (val: string) => {
+    setWhatsappNumber(val)
+    localStorage.setItem('burgers_je_whatsapp', val)
+  }
 
   // Admin User Form states
   const [newUserUsername, setNewUserUsername] = useState('')
@@ -915,7 +830,6 @@ export default function App() {
     setFormCategory('Hamburguesas')
     setFormImage('')
     setAdminErrors({})
-    setImagePreviewMode('preset')
   }
 
   const handleEditProductClick = (item: FoodItem) => {
@@ -927,11 +841,6 @@ export default function App() {
     setFormImage(item.image)
     setAdminErrors({})
 
-    if (PRESET_IMAGES.some((p) => p.url === item.image)) {
-      setImagePreviewMode('preset')
-    } else {
-      setImagePreviewMode('url')
-    }
     showToast(`Editando "${item.title}"`, 'info')
   }
 
@@ -960,9 +869,9 @@ export default function App() {
   }
 
   const handleRestoreDefaultProducts = async () => {
-    if (confirm('¿Restaurar base de datos de productos a los valores por defecto del sistema de diseño?')) {
+    if (confirm('¿Estás seguro de que deseas VACIAR todos los productos del catálogo? Esta acción no se puede deshacer.')) {
       try {
-        showToast('Restableciendo catálogo de comida...', 'info')
+        showToast('Vaciando catálogo de comida...', 'info')
         
         // Delete all products
         const { error: deleteError } = await supabase
@@ -972,26 +881,13 @@ export default function App() {
 
         if (deleteError) throw deleteError
 
-        // Insert default products
-        const { error: insertError } = await supabase
-          .from('products')
-          .insert(DEFAULT_PRODUCTS.map(p => ({
-            title: p.title,
-            description: p.description,
-            price: p.price,
-            image: p.image,
-            category: p.category,
-            isCustom: false,
-            createdAt: new Date().toISOString()
-          })))
-
-        if (insertError) throw insertError
-
-        showToast('Base de datos de productos reestablecida con éxito', 'success')
+        setProducts([])
+        localStorage.removeItem('burgers_je_products')
+        showToast('Catálogo de productos vaciado con éxito', 'success')
         fetchProducts()
       } catch (err) {
         console.error(err)
-        const msg = err instanceof Error ? err.message : 'Error al reestablecer productos'
+        const msg = err instanceof Error ? err.message : 'Error al vaciar productos'
         showToast(msg, 'error')
       }
     }
@@ -1130,7 +1026,7 @@ export default function App() {
   })
 
   if (isMenuView) {
-    return <DigitalMenuBoard products={products} featuredProductId={featuredProductId} />
+    return <DigitalMenuBoard products={products} featuredProductId={featuredProductId} whatsappNumber={whatsappNumber} />
   }
 
   if (!currentUser) {
@@ -2220,72 +2116,71 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Image configuration */}
+                {/* Image configuration with Cloudinary */}
                 <div className="space-y-3">
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider m-0">
                     Imagen del Producto
                   </label>
                   
-                  {/* Image source selector buttons */}
-                  <div className="grid grid-cols-2 gap-1.5 bg-zinc-900 p-1 rounded-lg border border-zinc-800">
-                    <button
-                      type="button"
-                      onClick={() => setImagePreviewMode('preset')}
-                      className={`py-1 text-[10px] rounded font-bold uppercase transition-all cursor-pointer ${
-                        imagePreviewMode === 'preset' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-350'
-                      }`}
-                    >
-                      Predeterminadas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImagePreviewMode('url')}
-                      className={`py-1 text-[10px] rounded font-bold uppercase transition-all cursor-pointer ${
-                        imagePreviewMode === 'url' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-350'
-                      }`}
-                    >
-                      Enlace URL
-                    </button>
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        
+                        setIsUploading(true)
+                        try {
+                          const cloudName = 'dqw1kwyzo'
+                          const apiKey = '493552747428936'
+                          const apiSecret = '6yce9s4AfEUP56lyN7VL_BHHtkI'
+                          
+                          const timestamp = Math.round((new Date()).getTime() / 1000)
+                          const strToSign = `timestamp=${timestamp}${apiSecret}`
+                          
+                          const encoder = new TextEncoder()
+                          const data = encoder.encode(strToSign)
+                          const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+                          const hashArray = Array.from(new Uint8Array(hashBuffer))
+                          const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          formData.append('api_key', apiKey)
+                          formData.append('timestamp', timestamp.toString())
+                          formData.append('signature', signature)
+
+                          const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+                            method: 'POST',
+                            body: formData
+                          })
+                          const result = await response.json()
+                          
+                          if (result.secure_url) {
+                            setFormImage(result.secure_url)
+                            showToast('Imagen subida con éxito', 'success')
+                          } else {
+                            throw new Error(result.error?.message || 'Error al subir imagen')
+                          }
+                        } catch (err) {
+                          console.error('Error uploading:', err)
+                          showToast('Error al subir imagen', 'error')
+                        } finally {
+                          setIsUploading(false)
+                          e.target.value = ''
+                        }
+                      }}
+                      className="w-full text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-zinc-800 file:text-zinc-300 hover:file:bg-zinc-700 file:cursor-pointer custom-input"
+                    />
+                    <div className="text-[10px] text-zinc-500 px-1">
+                      Sube una imagen (se guardará en Cloudinary automáticamente).
+                    </div>
                   </div>
 
-                  {/* PRESET CHIPS */}
-                  {imagePreviewMode === 'preset' && (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-3 gap-2">
-                        {PRESET_IMAGES.map((img, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setFormImage(img.url)}
-                            className={`relative h-14 rounded-lg overflow-hidden border transition-all cursor-pointer ${
-                              formImage === img.url
-                                ? 'border-amber-500 shadow-md shadow-amber-500/20'
-                                : 'border-zinc-800 hover:border-zinc-600'
-                            }`}
-                            title={img.label}
-                          >
-                            <img src={img.url} className="w-full h-full object-cover" alt="" />
-                            {formImage === img.url && (
-                              <div className="absolute inset-0 bg-amber-500/10 flex items-center justify-center">
-                                <span className="bg-amber-500 text-black text-[9px] px-1 rounded font-bold">LISTO</span>
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* EXTERNAL URL INPUT */}
-                  {imagePreviewMode === 'url' && (
-                    <div>
-                      <input
-                        type="url"
-                        placeholder="Inserta enlace HTTPS de imagen..."
-                        value={formImage}
-                        onChange={(e) => setFormImage(e.target.value)}
-                        className="custom-input py-2 text-xs"
-                      />
+                  {isUploading && (
+                    <div className="text-sm text-amber-500 animate-pulse font-mono">
+                      Subiendo imagen a Cloudinary... ⏳
                     </div>
                   )}
 
@@ -2347,9 +2242,9 @@ export default function App() {
                   
                   <button
                     onClick={handleRestoreDefaultProducts}
-                    className="text-xs text-amber-500 hover:text-amber-400 font-bold border border-amber-500/20 hover:border-amber-500 bg-zinc-900 py-2 px-3 rounded-lg transition-all cursor-pointer"
+                    className="text-xs text-red-500 hover:text-red-400 font-bold border border-red-500/20 hover:border-red-500 bg-zinc-900 py-2 px-3 rounded-lg transition-all cursor-pointer"
                   >
-                    🔄 REESTABLECER BASE DE DATOS
+                    ⚠️ VACIAR CATÁLOGO
                   </button>
                 </div>
 
@@ -2636,6 +2531,26 @@ export default function App() {
                   })()}
                 </div>
               </div>
+
+              {/* WHATSAPP SETTINGS */}
+              <div className="mt-8 border-t border-zinc-900 pt-6">
+                <h4 className="text-white font-bebas text-lg mb-2">📱 AJUSTES PÚBLICOS</h4>
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                    Número de WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    value={whatsappNumber}
+                    onChange={(e) => handleSaveWhatsapp(e.target.value)}
+                    placeholder="Ej. +52 55 1234 5678"
+                    className="custom-input py-2 text-sm w-full"
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1 leading-relaxed">
+                    Este número se mostrará en la esquina superior derecha de la pantalla pública del menú.
+                  </p>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -2819,7 +2734,7 @@ export default function App() {
   )
 }
 
-function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[], featuredProductId: string }) {
+function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { products: FoodItem[], featuredProductId: string, whatsappNumber: string }) {
   const hamburguesas = products.filter(p => p.category === 'Hamburguesas')
   const combos = products.filter(p => p.category === 'Combos')
   const bebidas = products.filter(p => p.category === 'Bebidas')
@@ -2871,7 +2786,9 @@ function DigitalMenuBoard({ products, featuredProductId }: { products: FoodItem[
         <div className="flex items-center gap-4">
           <div className="bg-zinc-900/80 px-4 py-2 rounded-xl border border-zinc-800 text-center">
             <span className="text-[10px] text-zinc-500 font-bold block uppercase tracking-wider">Ordena por WhatsApp</span>
-            <span className="text-sm font-mono text-yellow-accent font-bold">🍔 J&E POS Digital</span>
+            <span className="text-sm font-mono text-yellow-accent font-bold">
+              {whatsappNumber ? `📱 ${whatsappNumber}` : '🍔 J&E POS Digital'}
+            </span>
           </div>
         </div>
       </header>
