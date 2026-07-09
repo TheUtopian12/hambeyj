@@ -60,7 +60,7 @@ const BurgerLogoIcon = () => (
     </defs>
     <circle cx="50" cy="50" r="48" fill="#000000" stroke="#FF282B" strokeWidth="2" />
     <circle cx="50" cy="50" r="42" fill="none" stroke="#FFA726" strokeWidth="0.5" strokeDasharray="3,3" />
-    
+
     <text fill="#FFFFFF" fontSize="6" fontFamily="Bebas Neue" letterSpacing="1.2">
       <textPath href="#archPath" startOffset="50%" textAnchor="middle">
         SABOR QUE PRENDE • ESTILO QUE SORPRENDE
@@ -78,17 +78,17 @@ const BurgerLogoIcon = () => (
       <circle cx="45" cy="30" r="2" fill="#FFFFFF" />
       <circle cx="65" cy="32" r="2" fill="#FFFFFF" />
       <circle cx="85" cy="28" r="2" fill="#FFFFFF" />
-      
+
       {/* Lettuce */}
       <path d="M 5,38 Q 15,48, 25,38 Q 35,48, 45,38 Q 55,48, 65,38 Q 75,48, 85,38 Q 95,48, 105,38 Q 115,48, 115,38" fill="#4CAF50" stroke="#000000" strokeWidth="2" />
-      
+
       {/* Cheese dripping */}
       <polygon points="10,48 25,58 40,48 55,64 70,48 90,56 110,48" fill="#FFD54F" stroke="#000000" strokeWidth="1" />
-      
+
       {/* Meat Patty */}
       <rect x="8" y="46" width="104" height="12" rx="6" fill="#5D4037" stroke="#000000" strokeWidth="2" />
       <line x1="20" y1="52" x2="100" y2="52" stroke="#4E342E" strokeWidth="3" strokeDasharray="6,4" />
-      
+
       {/* Bottom Bun */}
       <path d="M 10,58 C 10,68, 110,68, 110,58 Z" fill="#FFA726" stroke="#000000" strokeWidth="2" />
     </g>
@@ -105,11 +105,11 @@ const BurgerLogoIcon = () => (
 const HeaderNeonBurger = () => (
   <svg viewBox="0 0 100 100" className="w-14 h-14" stroke="#FF282B" fill="none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <filter id="neon-glow-red-svg">
-      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feGaussianBlur stdDeviation="2" result="coloredBlur" />
       <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
     <g filter="url(#neon-glow-red-svg)">
@@ -301,7 +301,7 @@ export default function App() {
         .from('pos_users')
         .select('id')
         .limit(1)
-      
+
       if (usersError) {
         console.error('Error al verificar usuarios:', usersError)
         return
@@ -416,16 +416,16 @@ export default function App() {
 
   // CLIENT MENU ROUTE DETECTION
   const [isMenuView, setIsMenuView] = useState(() => {
-    return window.location.pathname === '/menu' || 
-           window.location.search.includes('menu') || 
-           window.location.hash.includes('menu')
+    return window.location.pathname === '/menu' ||
+      window.location.search.includes('menu') ||
+      window.location.hash.includes('menu')
   })
 
   useEffect(() => {
     const handlePopState = () => {
       setIsMenuView(
-        window.location.pathname === '/menu' || 
-        window.location.search.includes('menu') || 
+        window.location.pathname === '/menu' ||
+        window.location.search.includes('menu') ||
         window.location.hash.includes('menu')
       )
     }
@@ -634,7 +634,7 @@ export default function App() {
           : `¡Pedido #${String(newOrder.orderNumber).padStart(4, '0')} enviado a cocina! (Pago pendiente)`,
         'success'
       )
-      
+
       // Reset POS sidebar state
       setCart([])
       setCustomerName('')
@@ -677,7 +677,7 @@ export default function App() {
 
       showToast(`¡Pedido #${String(order.orderNumber).padStart(4, '0')} cobrado con éxito!`, 'success')
       fetchOrders()
-      
+
       // Reset states
       setPayingOrderId(null)
       setPayingCashReceived('')
@@ -757,7 +757,7 @@ export default function App() {
     if (!formTitle.trim()) {
       errors.title = 'El título de la comida es obligatorio'
     }
-    
+
     const priceNum = parseFloat(formPrice)
     if (isNaN(priceNum) || priceNum <= 0) {
       errors.price = 'Ingrese un precio válido mayor a 0'
@@ -871,7 +871,7 @@ export default function App() {
     if (confirm('¿Estás seguro de que deseas VACIAR todos los productos del catálogo? Esta acción no se puede deshacer.')) {
       try {
         showToast('Vaciando catálogo de comida...', 'info')
-        
+
         // Delete all products
         const { error: deleteError } = await supabase
           .from('products')
@@ -904,7 +904,7 @@ export default function App() {
 
     try {
       const normalizedUser = newUserUsername.toLowerCase().trim()
-      
+
       // Check if username already exists in pos_users
       const { data: existing, error: checkError } = await supabase
         .from('pos_users')
@@ -1090,21 +1090,19 @@ export default function App() {
           <nav className="flex items-center bg-zinc-900 p-1.5 rounded-xl border border-zinc-800/80">
             <button
               onClick={() => setActiveTab('pos')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 cursor-pointer ${
-                activeTab === 'pos'
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 cursor-pointer ${activeTab === 'pos'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 font-bold'
                   : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-              }`}
+                }`}
             >
               🛒 PUNTO DE VENTA (POS)
             </button>
             <button
               onClick={() => setActiveTab('pedidos')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 cursor-pointer ${
-                activeTab === 'pedidos'
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 cursor-pointer ${activeTab === 'pedidos'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 font-bold'
                   : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-              }`}
+                }`}
             >
               📋 CONTROL DE PEDIDOS
               {orders.filter((o) => o.status === 'En Cocina' || o.status === 'Pendiente').length > 0 && (
@@ -1115,11 +1113,10 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveTab('admin')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 cursor-pointer ${
-                activeTab === 'admin'
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bebas text-sm sm:text-base tracking-wider transition-all duration-200 cursor-pointer ${activeTab === 'admin'
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/30 font-bold'
                   : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-              }`}
+                }`}
             >
               ⚙️ CONFIGURACIÓN
             </button>
@@ -1140,9 +1137,8 @@ export default function App() {
                 setIsNotificationsOpen(!isNotificationsOpen)
                 setUnreadNotificationsCount(0)
               }}
-              className={`relative p-3 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800/80 hover:border-zinc-700 transition-all text-white flex items-center justify-center cursor-pointer ${
-                unreadNotificationsCount > 0 ? 'neon-glow-red shake-element' : ''
-              }`}
+              className={`relative p-3 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800/80 hover:border-zinc-700 transition-all text-white flex items-center justify-center cursor-pointer ${unreadNotificationsCount > 0 ? 'neon-glow-red shake-element' : ''
+                }`}
               title="Alertas de Actividad"
             >
               <svg className="w-5.5 h-5.5 text-zinc-300 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
@@ -1210,16 +1206,16 @@ export default function App() {
 
       {/* --- MAIN BODY CONTENT --- */}
       <main className="flex-1 flex flex-col z-10">
-        
+
         {/* ======================================= */}
         {/* 1. PUNTO DE VENTA (POS) TAB */}
         {/* ======================================= */}
         {activeTab === 'pos' && (
           <div className="flex-1 flex flex-col lg:flex-row">
-            
+
             {/* LEFT SIDE: MENU LIST (2/3 width) */}
             <div className="flex-1 p-6 border-r border-zinc-900 flex flex-col">
-              
+
               {/* Category Grid and Search bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="flex flex-wrap gap-2">
@@ -1386,7 +1382,7 @@ export default function App() {
                                     +
                                   </button>
                                 </div>
-                                
+
                                 <button
                                   onClick={() => handleRemoveFromCart(item.product.id, item.product.title)}
                                   className="text-zinc-600 hover:text-red-500 p-1 transition-colors duration-150 cursor-pointer"
@@ -1525,11 +1521,10 @@ export default function App() {
                                   setPaymentMethod(method)
                                   setCheckoutErrors((prev) => ({ ...prev, cash: undefined }))
                                 }}
-                                className={`py-2 px-1 text-xs rounded-lg font-bebas tracking-wide border transition-all duration-150 cursor-pointer ${
-                                  paymentMethod === method
+                                className={`py-2 px-1 text-xs rounded-lg font-bebas tracking-wide border transition-all duration-150 cursor-pointer ${paymentMethod === method
                                     ? 'bg-amber-500 border-amber-500 text-black font-bold shadow-md shadow-amber-500/20'
                                     : 'bg-black border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700'
-                                }`}
+                                  }`}
                               >
                                 {method === 'Efectivo' ? '💵 EFECTIVO' : '🏦 TRANSF.'}
                               </button>
@@ -1633,7 +1628,7 @@ export default function App() {
         {/* ======================================= */}
         {activeTab === 'pedidos' && (
           <div className="flex-1 p-6 space-y-6">
-            
+
             {/* STATS OVERVIEW CARDS */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-900 flex items-center gap-4">
@@ -1693,17 +1688,16 @@ export default function App() {
                   </button>
                 )}
               </div>
-              
+
               <div className="flex flex-wrap gap-1.5 bg-zinc-900 p-1 rounded-xl border border-zinc-800">
                 {(['Todos', 'Pendiente', 'En Cocina', 'Listo', 'Entregado', 'Cancelado'] as const).map((st) => (
                   <button
                     key={st}
                     onClick={() => setOrderFilter(st)}
-                    className={`px-3 py-1.5 rounded-lg font-bebas text-xs sm:text-sm tracking-wider transition-all cursor-pointer ${
-                      orderFilter === st
+                    className={`px-3 py-1.5 rounded-lg font-bebas text-xs sm:text-sm tracking-wider transition-all cursor-pointer ${orderFilter === st
                         ? 'bg-zinc-800 text-white font-bold border border-zinc-700 shadow'
                         : 'text-zinc-500 hover:text-zinc-300'
-                    }`}
+                      }`}
                   >
                     {st === 'Todos' ? '📂 TODOS' : st.toUpperCase()}
                   </button>
@@ -1737,15 +1731,14 @@ export default function App() {
                     return (
                       <div
                         key={order.id}
-                        className={`bg-zinc-950 rounded-2xl border p-5 flex flex-col justify-between transition-all duration-200 ${
-                          order.status === 'Pendiente'
+                        className={`bg-zinc-950 rounded-2xl border p-5 flex flex-col justify-between transition-all duration-200 ${order.status === 'Pendiente'
                             ? 'border-zinc-800/80 hover:border-orange-500/50'
                             : order.status === 'En Cocina'
                               ? 'border-amber-500/30 hover:border-amber-500/60'
                               : order.status === 'Listo'
                                 ? 'border-emerald-500/30 hover:border-emerald-500/60'
                                 : 'border-zinc-900'
-                        }`}
+                          }`}
                       >
                         {/* Header card info */}
                         <div>
@@ -1774,8 +1767,7 @@ export default function App() {
                             </div>
                             <div className="flex flex-col items-end gap-1.5">
                               <span
-                                className={`status-pill ${
-                                  order.status === 'Pendiente'
+                                className={`status-pill ${order.status === 'Pendiente'
                                     ? 'status-pendiente'
                                     : order.status === 'En Cocina'
                                       ? 'status-cocina'
@@ -1784,7 +1776,7 @@ export default function App() {
                                         : order.status === 'Entregado'
                                           ? 'status-entregado'
                                           : 'status-cancelado'
-                                }`}
+                                  }`}
                               >
                                 {order.status}
                               </span>
@@ -1876,11 +1868,10 @@ export default function App() {
                                       key={method}
                                       type="button"
                                       onClick={() => setPayingMethod(method)}
-                                      className={`py-1.5 text-[10px] rounded font-bebas tracking-wide transition-all cursor-pointer ${
-                                        payingMethod === method
+                                      className={`py-1.5 text-[10px] rounded font-bebas tracking-wide transition-all cursor-pointer ${payingMethod === method
                                           ? 'bg-amber-500 text-black font-bold'
                                           : 'text-zinc-500 hover:text-white'
-                                      }`}
+                                        }`}
                                     >
                                       {method === 'Efectivo' ? '💵 EF' : '🏦 TR'}
                                     </button>
@@ -1922,7 +1913,7 @@ export default function App() {
 
                           {/* Chef and payment Actions */}
                           <div className="flex flex-col gap-2 pt-1">
-                            
+
                             {/* Show the trigger Cobrar button if not paid yet & not currently paying */}
                             {!order.isPaid && payingOrderId !== order.id && (
                               <button
@@ -2008,7 +1999,7 @@ export default function App() {
         {/* ======================================= */}
         {activeTab === 'admin' && (
           <div className="flex-1 p-6 flex flex-col xl:flex-row gap-6">
-            
+
             {/* COLUMN 1: FOOD MENU CRUD FORM (1/3) */}
             <div className="w-full xl:w-[400px] bg-zinc-950 rounded-2xl border border-zinc-900 p-6 self-start">
               <div className="flex items-center justify-between border-b border-zinc-900 pb-4 mb-5">
@@ -2044,9 +2035,8 @@ export default function App() {
                         setAdminErrors((prev) => ({ ...prev, title: undefined }))
                       }
                     }}
-                    className={`custom-input uppercase font-bebas tracking-wide ${
-                      adminErrors.title ? 'custom-input-error' : ''
-                    }`}
+                    className={`custom-input uppercase font-bebas tracking-wide ${adminErrors.title ? 'custom-input-error' : ''
+                      }`}
                   />
                   {adminErrors.title && (
                     <p className="error-message">{adminErrors.title}</p>
@@ -2120,7 +2110,7 @@ export default function App() {
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider m-0">
                     Imagen del Producto
                   </label>
-                  
+
                   <div className="space-y-2">
                     <input
                       type="file"
@@ -2128,16 +2118,16 @@ export default function App() {
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (!file) return
-                        
+
                         setIsUploading(true)
                         try {
                           const cloudName = 'dqw1kwyzo'
                           const apiKey = '493552747428936'
                           const apiSecret = '6yce9s4AfEUP56lyN7VL_BHHtkI'
-                          
+
                           const timestamp = Math.round((new Date()).getTime() / 1000)
                           const strToSign = `timestamp=${timestamp}${apiSecret}`
-                          
+
                           const encoder = new TextEncoder()
                           const data = encoder.encode(strToSign)
                           const hashBuffer = await crypto.subtle.digest('SHA-1', data)
@@ -2155,7 +2145,7 @@ export default function App() {
                             body: formData
                           })
                           const result = await response.json()
-                          
+
                           if (result.secure_url) {
                             setFormImage(result.secure_url)
                             showToast('Imagen subida con éxito', 'success')
@@ -2238,7 +2228,7 @@ export default function App() {
                     <h2 className="font-bebas text-2xl tracking-wider text-white m-0">ALIMENTOS EN BASE DE DATOS ({products.length})</h2>
                     <p className="text-xs text-zinc-500 m-0">Lista guardada de forma remota en tu PostgreSQL de Neon.</p>
                   </div>
-                  
+
                   <button
                     onClick={handleRestoreDefaultProducts}
                     className="text-xs text-red-500 hover:text-red-400 font-bold border border-red-500/20 hover:border-red-500 bg-zinc-900 py-2 px-3 rounded-lg transition-all cursor-pointer"
@@ -2263,9 +2253,8 @@ export default function App() {
                       {products.map((item) => (
                         <tr
                           key={item.id}
-                          className={`hover:bg-zinc-900/40 transition-colors group ${
-                            editingItem?.id === item.id ? 'bg-amber-950/10' : ''
-                          }`}
+                          className={`hover:bg-zinc-900/40 transition-colors group ${editingItem?.id === item.id ? 'bg-amber-950/10' : ''
+                            }`}
                         >
                           <td className="py-3">
                             <img
@@ -2399,9 +2388,8 @@ export default function App() {
                           <div className="min-w-0">
                             <h4 className="font-bebas text-base text-yellow-accent m-0 flex items-center gap-2">
                               {u.name}
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                                u.role === 'ADMIN' ? 'bg-red-950 text-red-400 border border-red-900/60' : 'bg-zinc-800 text-zinc-400'
-                              }`}>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${u.role === 'ADMIN' ? 'bg-red-950 text-red-400 border border-red-900/60' : 'bg-zinc-800 text-zinc-400'
+                                }`}>
                                 {u.role}
                               </span>
                             </h4>
@@ -2560,7 +2548,7 @@ export default function App() {
       {/* --- DESIGN SYSTEM LOGO FOOTER --- */}
       <footer className="bg-black border-t border-zinc-950 py-10 px-6 flex flex-col items-center justify-center text-center gap-6 z-10 relative overflow-hidden">
         <BurgerLogoIcon />
-        
+
         <div className="space-y-1">
           <p className="font-bebas text-lg text-white m-0 tracking-wider">
             SISTEMA DE DISEÑO • BURGERS J&E
@@ -2617,7 +2605,7 @@ export default function App() {
       {printingOrder && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print overflow-y-auto">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            
+
             {/* Modal Header */}
             <div className="bg-zinc-900 border-b border-zinc-850 px-5 py-4 flex items-center justify-between">
               <span className="font-bebas text-lg tracking-wider text-white">🖨️ TICKET DE VENTA (PREVISTA)</span>
@@ -2783,10 +2771,10 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 px-6 py-3 rounded-2xl border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center animate-pulse relative overflow-hidden group">
+          <div className="bg-gradient-to-r from-green-600 to-green-500 px-6 py-3 rounded-2xl border-2 border-green-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] text-center animate-pulse relative overflow-hidden group">
             {/* Glossy overlay effect */}
             <div className="absolute inset-0 bg-white/20 translate-y-[-100%] group-hover:translate-y-[100%] transition-transform duration-700 ease-in-out"></div>
-            
+
             <span className="text-xs text-emerald-100 font-bold block uppercase tracking-wider drop-shadow-md mb-1">
               ¡Pide por WhatsApp! 🚀
             </span>
@@ -2812,7 +2800,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
 
             <div className="space-y-6">
               <h2 className="font-bebas text-2xl text-white tracking-wide border-b border-zinc-900 pb-2 m-0">🔥 LO DESTACADO</h2>
-              
+
               <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-900/50">
                 <img
                   src={featured.image}
@@ -2851,7 +2839,7 @@ function DigitalMenuBoard({ products, featuredProductId, whatsappNumber }: { pro
 
         {/* RIGHT COLUMN: GRID OF CATEGORIES (8/12 width) - NO SCROLLBARS */}
         <div className="lg:col-span-8 grid grid-cols-1 lg:grid-cols-2 lg:grid-rows-2 gap-4 h-auto lg:h-full">
-          
+
           {/* HAMBURGUESAS */}
           <div className="bg-zinc-950/40 rounded-2xl border border-zinc-900 p-5 flex flex-col justify-between overflow-hidden">
             <div>
@@ -2949,7 +2937,7 @@ function LoginWall({ onLoginSuccess }: LoginWallProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
+
     if (!username.trim() || !password.trim()) {
       setError('Por favor ingresa usuario y contraseña.')
       return
@@ -2995,7 +2983,7 @@ function LoginWall({ onLoginSuccess }: LoginWallProps) {
       {/* Background glowing effects */}
       <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] bg-red-600/10 blur-[150px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] bg-amber-500/10 blur-[150px] rounded-full pointer-events-none"></div>
-      
+
       <div className="w-full max-w-md bg-zinc-950/80 border border-zinc-900 rounded-3xl p-8 z-10 shadow-2xl relative">
         <div className="flex flex-col items-center text-center gap-4 mb-8">
           <div className="scale-125 mb-2">
